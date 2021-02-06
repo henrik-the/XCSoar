@@ -208,7 +208,29 @@ enum {
   NE_UNUSED_55 =                      125,
   NE_UNUSED_56 =                      126,
   NE_UNUSED_57 =                      127,
-  NE_COUNT = 132, // How many we have for arrays etc // XXX Increased arbitrarily for duplicates above
+
+  NE_NMEA_KEY0 =                      130,
+  NE_NMEA_KEY1 =                      131,
+  NE_NMEA_KEY2 =                      132,
+  NE_NMEA_KEY3 =                      133,
+  NE_NMEA_KEY4 =                      134,
+  NE_NMEA_KEY5 =                      135,
+  NE_NMEA_KEY6 =                      136,
+  NE_NMEA_KEY7 =                      137,
+  NE_NMEA_KEY8 =                      138,
+  NE_NMEA_KEY9 =                      139,
+  NE_NMEA_KEY10 =                     140,
+  NE_NMEA_KEY11 =                     141,
+  NE_NMEA_KEY12 =                     142,
+  NE_NMEA_KEY13 =                     143,
+  NE_NMEA_KEY14 =                     144,
+  NE_NMEA_KEY15 =                     145,
+  NE_NMEA_KEY16 =                     146,
+  NE_NMEA_KEY17 =                     147,
+  NE_NMEA_KEY18 =                     148,
+  NE_NMEA_KEY19 =                     149,
+
+  NE_COUNT = 152, // How many we have for arrays etc // XXX Increased arbitrarily for duplicates above
 };
 
 #endif

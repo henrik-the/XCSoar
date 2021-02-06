@@ -29,10 +29,12 @@ Copyright_License {
 #include "InfoBoxes/InfoBoxManager.hpp"
 #include "Device/MultipleDevices.hpp"
 #include "Input/TaskEventObserver.hpp"
+#include "Input/InputEvents.hpp"
 #include "Task/ProtectedTaskManager.hpp"
 #include "Components.hpp"
 
 static TaskEventObserver task_event_observer;
+bool nmea_keys[20] = {0};
 
 void
 UIReceiveSensorData()
@@ -40,6 +42,13 @@ UIReceiveSensorData()
   XCSoarInterface::ReceiveGPS();
 
   ApplyVegaSwitches();
+
+  for (int i = 0; i<20; i++) {
+    if (nmea_keys[i]) {
+      InputEvents::processNmea_real(130+i);
+      nmea_keys[i]=0;
+    }
+  }
 
   bool modified = ApplyExternalSettings();
 
