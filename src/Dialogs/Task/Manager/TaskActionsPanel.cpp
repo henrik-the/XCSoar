@@ -118,11 +118,12 @@ TaskActionsPanel::OnDownloadClicked()
 
   strcpy(id, settings.logger.pilot_weglide_id.c_str());
   snprintf(url, sizeof(url),"https://api.weglide.org/v1/task/declaration/%s?cup=false&tsk=true",id);
-
-  const auto cache_path = MakeLocalPath(_T("weglide"));
   
+  const auto cache_path = MakeLocalPath(_T("weglide"));
   File::Delete(LocalPath(_T("weglide/weglide_declared.tsk")));
   Net::DownloadManager::Enqueue(url, Path(_T("weglide/weglide_declared.tsk")));
+  
+  DirtyTaskListPanel();
 }
 
 void
