@@ -96,6 +96,7 @@ const char LanguageFile[] = "LanguageFile"; // pL
 const char InputFile[] = "InputFile"; // pL
 const char PilotName[] = "PilotName";
 const char CoPilotName[] = "CoPilotName";
+const char PilotWeGlideId[] = "PilotWeGlideId";
 const char AircraftType[] = "AircraftType";
 const char AircraftReg[] = "AircraftReg";
 const char CompetitionId[] = "AircraftRego";

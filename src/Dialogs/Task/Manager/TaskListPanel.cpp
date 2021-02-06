@@ -331,11 +331,7 @@ TaskListPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
 void
 TaskListPanel::Show(const PixelRect &rc)
 {
-  if (serial != task_list_serial) {
-    serial = task_list_serial;
-    // Scan XCSoarData for available tasks
-    task_store.Scan(more);
-  }
+  task_store.Scan(more); //if deleted, because tasks not shown, when weglide download and then clicked on browse
 
   dialog.ShowTaskView(get_cursor_task());
 

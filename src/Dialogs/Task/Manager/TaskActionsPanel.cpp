@@ -38,6 +38,12 @@ Copyright_License {
 #include "Engine/Task/Factory/AbstractTaskFactory.hpp"
 #include "Engine/Waypoint/Waypoints.hpp"
 
+//Librarys für WeGlide Task Download
+#include "net/http/DownloadManager.hpp"
+#include "LocalPath.hpp"
+#include "system/FileUtil.hpp"
+#include "LogFile.hpp"
+
 TaskActionsPanel::TaskActionsPanel(TaskManagerDialog &_dialog,
                                    TaskMiscPanel &_parent,
                                    std::unique_ptr<OrderedTask> &_active_task,
@@ -103,6 +109,22 @@ TaskActionsPanel::OnDeclareClicked()
   ExternalLogger::Declare(decl, way_points.GetHome().get());
 }
 
+inline void
+TaskActionsPanel::OnDownloadClicked()
+{
+  const ComputerSettings &settings = CommonInterface::GetComputerSettings();
+  char url[256];
+  char id[20];
+
+  strcpy(id, settings.logger.pilot_weglide_id.c_str());
+  snprintf(url, sizeof(url),"https://api.weglide.org/v1/task/declaration/%s?cup=false&tsk=true",id);
+
+  const auto cache_path = MakeLocalPath(_T("weglide"));
+  
+  File::Delete(LocalPath(_T("weglide/weglide_declared.tsk")));
+  Net::DownloadManager::Enqueue(url, Path(_T("weglide/weglide_declared.tsk")));
+}
+
 void
 TaskActionsPanel::ReClick()
 {
@@ -116,6 +138,7 @@ TaskActionsPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
   AddButton(_("Declare"), [this](){ OnDeclareClicked(); });
   AddButton(_("Browse"), [this](){ OnBrowseClicked(); });
   AddButton(_("Save"), [this](){ SaveTask(); });
+  AddButton(_("Download WeGlide"), [this](){ OnDownloadClicked(); });
 
   if (is_simulator())
     /* cannot communicate with real devices in simulator mode */

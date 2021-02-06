@@ -60,6 +60,8 @@ struct LoggerSettings {
 
   StaticString<64> copilot_name;
 
+  StaticString<32> pilot_weglide_id;
+
   void SetDefaults();
 };
 
