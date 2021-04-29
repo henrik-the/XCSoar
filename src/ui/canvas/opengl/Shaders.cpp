@@ -23,28 +23,32 @@ Copyright_License {
 
 #include "Shaders.hpp"
 #include "Program.hpp"
+#include "Attribute.hpp"
 #include "Globals.hpp"
+#include "ui/dim/Point.hpp"
+#include "util/RuntimeError.hxx"
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include <stdio.h>
-
 namespace OpenGL {
-  GLProgram *solid_shader;
-  GLint solid_projection, solid_modelview;
 
-  GLProgram *texture_shader;
-  GLint texture_projection, texture_texture;
+GLProgram *solid_shader;
+GLint solid_projection, solid_modelview, solid_translate;
 
-  GLProgram *invert_shader;
-  GLint invert_projection, invert_texture;
+GLProgram *texture_shader;
+GLint texture_projection, texture_texture, texture_translate;
 
-  GLProgram *alpha_shader;
-  GLint alpha_projection, alpha_texture;
+GLProgram *invert_shader;
+GLint invert_projection, invert_texture, invert_translate;
 
-  GLProgram *combine_texture_shader;
-  GLint combine_texture_projection, combine_texture_texture;
-}
+GLProgram *alpha_shader;
+GLint alpha_projection, alpha_texture, alpha_translate;
+
+GLProgram *combine_texture_shader;
+GLint combine_texture_projection, combine_texture_texture,
+  combine_texture_translate;
+
+} // namespace OpenGL
 
 #ifdef HAVE_GLES
 #define GLSL_VERSION
@@ -56,81 +60,99 @@ namespace OpenGL {
 
 static constexpr char solid_vertex_shader[] =
   GLSL_VERSION
-  "uniform mat4 projection;"
-  "uniform mat4 modelview;"
-  "attribute vec4 translate;"
-  "attribute vec4 position;"
-  "attribute vec4 color;"
-  "varying vec4 colorvar;"
-  "void main() {"
-  "  gl_Position = projection * (modelview * position + translate);"
-  "  colorvar = color;"
-  "}";
+  R"glsl(
+    uniform mat4 projection;
+    uniform mat4 modelview;
+    uniform vec2 translate;
+    attribute vec4 position;
+    attribute vec4 color;
+    varying vec4 colorvar;
+    void main() {
+      gl_Position = modelview * position;
+      gl_Position.xy += translate;
+      gl_Position = projection * gl_Position;
+      colorvar = color;
+    }
+)glsl";
 
 static constexpr char solid_fragment_shader[] =
   GLSL_VERSION
   GLSL_PRECISION
-  "varying vec4 colorvar;"
-  "void main() {"
-  "  gl_FragColor = colorvar;"
-  "}";
+  R"glsl(
+    varying vec4 colorvar;
+    void main() {
+      gl_FragColor = colorvar;
+    }
+)glsl";
 
 static constexpr char texture_vertex_shader[] =
   GLSL_VERSION
-  "uniform mat4 projection;"
-  "attribute vec4 translate;"
-  "attribute vec4 position;"
-  "attribute vec2 texcoord;"
-  "varying vec2 texcoordvar;"
-  "attribute vec4 color;"
-  "varying vec4 colorvar;"
-  "void main() {"
-  "  gl_Position = projection * (position + translate);"
-  "  texcoordvar = texcoord;"
-  "  colorvar = color;"
-  "}";
+  R"glsl(
+    uniform mat4 projection;
+    uniform vec2 translate;
+    attribute vec4 position;
+    attribute vec2 texcoord;
+    varying vec2 texcoordvar;
+    attribute vec4 color;
+    varying vec4 colorvar;
+    void main() {
+      gl_Position = position;
+      gl_Position.xy += translate;
+      gl_Position = projection * gl_Position;
+      texcoordvar = texcoord;
+      colorvar = color;
+    }
+)glsl";
 
 static constexpr char texture_fragment_shader[] =
   GLSL_VERSION
   GLSL_PRECISION
-  "uniform sampler2D texture;"
-  "varying vec2 texcoordvar;"
-  "void main() {"
-  "  gl_FragColor = texture2D(texture, texcoordvar);"
-  "}";
+  R"glsl(
+    uniform sampler2D texture;
+    varying vec2 texcoordvar;
+    void main() {
+      gl_FragColor = texture2D(texture, texcoordvar);
+    }
+)glsl";
 
 static const char *const invert_vertex_shader = texture_vertex_shader;
 static constexpr char invert_fragment_shader[] =
   GLSL_VERSION
   GLSL_PRECISION
-  "uniform sampler2D texture;"
-  "varying vec2 texcoordvar;"
-  "void main() {"
-  "  vec4 color = texture2D(texture, texcoordvar);"
-  "  gl_FragColor = vec4(vec3(1) - color.rgb, color.a);"
-  "}";
+  R"glsl(
+    uniform sampler2D texture;
+    varying vec2 texcoordvar;
+    void main() {
+      vec4 color = texture2D(texture, texcoordvar);
+      gl_FragColor = vec4(vec3(1) - color.rgb, color.a);
+    }
+)glsl";
 
 static const char *const alpha_vertex_shader = texture_vertex_shader;
 static constexpr char alpha_fragment_shader[] =
   GLSL_VERSION
   GLSL_PRECISION
-  "uniform sampler2D texture;"
-  "varying vec4 colorvar;"
-  "varying vec2 texcoordvar;"
-  "void main() {"
-  "  gl_FragColor = vec4(colorvar.rgb, texture2D(texture, texcoordvar).a);"
-  "}";
+  R"glsl(
+    uniform sampler2D texture;
+    varying vec4 colorvar;
+    varying vec2 texcoordvar;
+    void main() {
+      gl_FragColor = vec4(colorvar.rgb, texture2D(texture, texcoordvar).a);
+    }
+)glsl";
 
 static const char *const combine_texture_vertex_shader = texture_vertex_shader;
 static constexpr char combine_texture_fragment_shader[] =
   GLSL_VERSION
   GLSL_PRECISION
-  "uniform sampler2D texture;"
-  "varying vec4 colorvar;"
-  "varying vec2 texcoordvar;"
-  "void main() {"
-  "  gl_FragColor = colorvar * texture2D(texture, texcoordvar);"
-  "}";
+  R"glsl(
+    uniform sampler2D texture;
+    varying vec4 colorvar;
+    varying vec2 texcoordvar;
+    void main() {
+      gl_FragColor = colorvar * texture2D(texture, texcoordvar);
+    }
+)glsl";
 
 static void
 CompileAttachShader(GLProgram &program, GLenum type, const char *code)
@@ -142,7 +164,7 @@ CompileAttachShader(GLProgram &program, GLenum type, const char *code)
   if (shader.GetCompileStatus() != GL_TRUE) {
     char log[4096];
     shader.GetInfoLog(log, sizeof(log));
-    fprintf(stderr, "Shader compiler failed: %s\n", log);
+    throw FormatRuntimeError("Shader compiler failed: %s", log);
   }
 
   program.AttachShader(shader);
@@ -154,14 +176,6 @@ CompileProgram(const char *vertex_shader, const char *fragment_shader)
   GLProgram *program = new GLProgram();
   CompileAttachShader(*program, GL_VERTEX_SHADER, vertex_shader);
   CompileAttachShader(*program, GL_FRAGMENT_SHADER, fragment_shader);
-  program->Link();
-
-  if (program->GetLinkStatus() != GL_TRUE) {
-    char log[4096];
-    program->GetInfoLog(log, sizeof(log));
-    fprintf(stderr, "Shader linker failed: %s\n", log);
-  }
-
   return program;
 }
 
@@ -173,7 +187,7 @@ LinkProgram(GLProgram &program)
   if (program.GetLinkStatus() != GL_TRUE) {
     char log[4096];
     program.GetInfoLog(log, sizeof(log));
-    fprintf(stderr, "Shader linker failed: %s\n", log);
+    throw FormatRuntimeError("Shader linker failed: %s", log);
   }
 }
 
@@ -183,44 +197,43 @@ OpenGL::InitShaders()
   DeinitShaders();
 
   solid_shader = CompileProgram(solid_vertex_shader, solid_fragment_shader);
-  solid_shader->BindAttribLocation(Attribute::TRANSLATE, "translate");
   solid_shader->BindAttribLocation(Attribute::POSITION, "position");
   solid_shader->BindAttribLocation(Attribute::COLOR, "color");
   LinkProgram(*solid_shader);
 
   solid_projection = solid_shader->GetUniformLocation("projection");
   solid_modelview = solid_shader->GetUniformLocation("modelview");
+  solid_translate = solid_shader->GetUniformLocation("translate");
 
   solid_shader->Use();
   glUniformMatrix4fv(solid_modelview, 1, GL_FALSE,
                      glm::value_ptr(glm::mat4(1)));
 
   texture_shader = CompileProgram(texture_vertex_shader, texture_fragment_shader);
-  texture_shader->BindAttribLocation(Attribute::TRANSLATE, "translate");
   texture_shader->BindAttribLocation(Attribute::POSITION, "position");
   texture_shader->BindAttribLocation(Attribute::TEXCOORD, "texcoord");
   LinkProgram(*texture_shader);
 
   texture_projection = texture_shader->GetUniformLocation("projection");
   texture_texture = texture_shader->GetUniformLocation("texture");
+  texture_translate = texture_shader->GetUniformLocation("translate");
 
   texture_shader->Use();
   glUniform1i(texture_texture, 0);
 
   invert_shader = CompileProgram(invert_vertex_shader, invert_fragment_shader);
-  invert_shader->BindAttribLocation(Attribute::TRANSLATE, "translate");
   invert_shader->BindAttribLocation(Attribute::POSITION, "position");
   invert_shader->BindAttribLocation(Attribute::TEXCOORD, "texcoord");
   LinkProgram(*invert_shader);
 
   invert_projection = invert_shader->GetUniformLocation("projection");
   invert_texture = invert_shader->GetUniformLocation("texture");
+  invert_translate = invert_shader->GetUniformLocation("translate");
 
   invert_shader->Use();
   glUniform1i(invert_texture, 0);
 
   alpha_shader = CompileProgram(alpha_vertex_shader, alpha_fragment_shader);
-  alpha_shader->BindAttribLocation(Attribute::TRANSLATE, "translate");
   alpha_shader->BindAttribLocation(Attribute::POSITION, "position");
   alpha_shader->BindAttribLocation(Attribute::TEXCOORD, "texcoord");
   alpha_shader->BindAttribLocation(Attribute::COLOR, "color");
@@ -228,13 +241,13 @@ OpenGL::InitShaders()
 
   alpha_projection = alpha_shader->GetUniformLocation("projection");
   alpha_texture = alpha_shader->GetUniformLocation("texture");
+  alpha_translate = alpha_shader->GetUniformLocation("translate");
 
   alpha_shader->Use();
   glUniform1i(alpha_texture, 0);
 
   combine_texture_shader = CompileProgram(combine_texture_vertex_shader,
                                           combine_texture_fragment_shader);
-  combine_texture_shader->BindAttribLocation(Attribute::TRANSLATE, "translate");
   combine_texture_shader->BindAttribLocation(Attribute::POSITION, "position");
   combine_texture_shader->BindAttribLocation(Attribute::TEXCOORD, "texcoord");
   combine_texture_shader->BindAttribLocation(Attribute::COLOR, "color");
@@ -244,22 +257,30 @@ OpenGL::InitShaders()
     combine_texture_shader->GetUniformLocation("projection");
   combine_texture_texture =
     combine_texture_shader->GetUniformLocation("texture");
+  combine_texture_translate =
+    combine_texture_shader->GetUniformLocation("translate");
 
   combine_texture_shader->Use();
   glUniform1i(combine_texture_texture, 0);
-
-  glVertexAttrib4f(Attribute::TRANSLATE, 0, 0, 0, 0);
 }
 
 void
-OpenGL::DeinitShaders()
+OpenGL::DeinitShaders() noexcept
 {
+  delete combine_texture_shader;
+  combine_texture_shader = nullptr;
+  delete alpha_shader;
+  alpha_shader = nullptr;
+  delete invert_shader;
+  invert_shader = nullptr;
+  delete texture_shader;
+  texture_shader = nullptr;
   delete solid_shader;
   solid_shader = nullptr;
 }
 
 void
-OpenGL::UpdateShaderProjectionMatrix()
+OpenGL::UpdateShaderProjectionMatrix() noexcept
 {
   alpha_shader->Use();
   glUniformMatrix4fv(alpha_projection, 1, GL_FALSE,
@@ -280,4 +301,25 @@ OpenGL::UpdateShaderProjectionMatrix()
   combine_texture_shader->Use();
   glUniformMatrix4fv(combine_texture_projection, 1, GL_FALSE,
                      glm::value_ptr(projection_matrix));
+}
+
+void
+OpenGL::UpdateShaderTranslate() noexcept
+{
+  const FloatPoint2D t(translate);
+
+  solid_shader->Use();
+  glUniform2f(solid_translate, t.x, t.y);
+
+  texture_shader->Use();
+  glUniform2f(texture_translate, t.x, t.y);
+
+  invert_shader->Use();
+  glUniform2f(invert_translate, t.x, t.y);
+
+  alpha_shader->Use();
+  glUniform2f(alpha_translate, t.x, t.y);
+
+  combine_texture_shader->Use();
+  glUniform2f(combine_texture_translate, t.x, t.y);
 }

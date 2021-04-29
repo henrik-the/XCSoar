@@ -24,9 +24,7 @@ Copyright_License {
 #include "OZPreviewRenderer.hpp"
 #include "OZRenderer.hpp"
 #include "ui/canvas/Canvas.hpp"
-#include "Screen/Features.hpp"
 #include "Engine/Task/ObservationZones/CylinderZone.hpp"
-#include "Engine/Task/ObservationZones/Boundary.hpp"
 #include "Projection/WindowProjection.hpp"
 #include "Asset.hpp"
 
@@ -37,26 +35,14 @@ OZPreviewRenderer::Draw(Canvas &canvas, const ObservationZonePoint &oz,
                         const AirspaceRendererSettings &airspace_settings,
                         const AirspaceLook &airspace_look)
 {
-  double scale;
-  GeoPoint center;
+  const auto bounds = OZRenderer::GetGeoBounds(oz);
 
-  if (IsAncientHardware()) {
-    scale = double(radius) / ((const CylinderZone &)oz).GetRadius();
-    center = oz.GetReference();
-  } else {
-    OZBoundary boundary = oz.GetBoundary();
+  const GeoPoint center = bounds.GetCenter();
 
-    GeoBounds bounds = GeoBounds::Invalid();
-    for (auto i = boundary.begin(), end = boundary.end(); i != end; ++i)
-      bounds.Extend(*i);
+  auto geo_width = bounds.GetGeoWidth();
+  auto geo_heigth = bounds.GetGeoHeight();
 
-    center = bounds.GetCenter();
-
-    auto geo_width = bounds.GetGeoWidth();
-    auto geo_heigth = bounds.GetGeoHeight();
-
-    scale = double(radius * 2) / std::max(geo_heigth, geo_width);
-  }
+  const double scale = double(radius * 2) / std::max(geo_heigth, geo_width);
 
   WindowProjection projection;
   projection.SetScreenSize({radius * 2, radius * 2});

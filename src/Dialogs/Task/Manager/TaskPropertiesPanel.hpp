@@ -54,16 +54,16 @@ public:
   void OnTaskTypeChange(DataFieldEnum &df);
 
   /* virtual methods from Widget */
-  void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  void ReClick() override;
-  void Show(const PixelRect &rc) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  void ReClick() noexcept override;
+  void Show(const PixelRect &rc) noexcept override;
 
   /**
    * Saves the panel's properties of the task to the temporary task
    * so they can be used by other panels editing the task.
    * @return true
    */
-  bool Leave() override;
+  bool Leave() noexcept override;
 
 protected:
   void RefreshView();
@@ -71,7 +71,7 @@ protected:
 
 private:
   /* virtual methods from DataFieldListener */
-  void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 #endif

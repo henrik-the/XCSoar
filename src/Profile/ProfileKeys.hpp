@@ -179,7 +179,9 @@ extern const char AbortTaskMode[];
 extern const char AutoMcMode[];
 extern const char AutoMc[];
 extern const char EnableExternalTriggerCruise[];
-extern const char OLCRules[];
+extern const char CruiseToCirclingModeSwitchThreshold[];
+extern const char CirclingToCruiseModeSwitchThreshold[];
+extern const char OLCRules[]; // legacy name, key contains contest rules
 extern const char PredictContest[];
 extern const char Handicap[];
 extern const char SnailWidthScale[];

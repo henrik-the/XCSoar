@@ -158,15 +158,15 @@ public:
   }
 
   /* virtual methods from class Widget */
-  void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
 
-  void Show(const PixelRect &rc) override {
+  void Show(const PixelRect &rc) noexcept override {
     ListWidget::Show(rc);
     UpdateList();
     CommonInterface::GetLiveBlackboard().AddListener(*this);
   }
 
-  void Hide() override {
+  void Hide() noexcept override {
     CommonInterface::GetLiveBlackboard().RemoveListener(*this);
 
     ListWidget::Hide();
@@ -184,7 +184,7 @@ public:
   void OnActivateItem(unsigned index) noexcept override;
 
   /* virtual methods from DataFieldListener */
-  void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 
 private:
   /* virtual methods from BlackboardListener */
@@ -208,7 +208,7 @@ public:
 
   /* virtual methods from class Widget */
   void Prepare(ContainerWindow &parent,
-                       const PixelRect &rc) override;
+                       const PixelRect &rc) noexcept override;
 };
 
 class WaypointListButtons : public RowFormWidget {
@@ -224,7 +224,7 @@ public:
   }
 
   /* virtual methods from class Widget */
-  void Prepare(ContainerWindow &parent, const PixelRect &rc) override {
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override {
     AddButton(_("Select"), [this](){
       list->OnWaypointListEnter();
     });
@@ -319,7 +319,8 @@ WaypointListWidget::UpdateList()
 }
 
 void
-WaypointListWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+WaypointListWidget::Prepare(ContainerWindow &parent,
+                            const PixelRect &rc) noexcept
 {
   const DialogLook &look = UIGlobals::GetDialogLook();
   CreateList(parent, look, rc,
@@ -399,7 +400,7 @@ CreateTypeDataField(DataFieldListener *listener)
 
 void
 WaypointFilterWidget::Prepare(ContainerWindow &parent,
-                              const PixelRect &rc)
+                              const PixelRect &rc) noexcept
 {
   Add(_("Name"), nullptr, CreateNameDataField(listener));
   Add(_("Distance"), nullptr, CreateDistanceDataField(listener));
@@ -408,7 +409,7 @@ WaypointFilterWidget::Prepare(ContainerWindow &parent,
 }
 
 void
-WaypointListWidget::OnModified(DataField &df)
+WaypointListWidget::OnModified(DataField &df) noexcept
 {
   if (filter_widget.IsDataField(NAME, df)) {
     dialog_state.name = df.GetAsString();

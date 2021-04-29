@@ -57,16 +57,17 @@ private:
 
 public:
   /* virtual methods from class Widget */
-  virtual void Prepare(ContainerWindow &parent,
-                       const PixelRect &rc) override;
+  void Prepare(ContainerWindow &parent,
+               const PixelRect &rc) noexcept override;
 
 private:
   /* methods from DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 void
-ReplayControlWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+ReplayControlWidget::Prepare(ContainerWindow &parent,
+                             const PixelRect &rc) noexcept
 {
   auto *file =
     AddFile(_("File"),
@@ -109,7 +110,7 @@ ReplayControlWidget::OnFastForwardClicked()
 }
 
 void
-ReplayControlWidget::OnModified(DataField &_df)
+ReplayControlWidget::OnModified(DataField &_df) noexcept
 {
   const DataFieldFloat &df = (const DataFieldFloat &)_df;
 

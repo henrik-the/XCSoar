@@ -279,22 +279,20 @@ FlarmTrafficControl::PaintTaskDirection(Canvas &canvas) const
   canvas.Select(look.radar_pen);
   canvas.SelectHollowBrush();
 
-  BulkPixelPoint triangle[4];
+  BulkPixelPoint triangle[3];
   triangle[0].x = 0;
   triangle[0].y = -radius / Layout::FastScale(1) + 15;
   triangle[1].x = 7;
   triangle[1].y = triangle[0].y + 30;
   triangle[2].x = -triangle[1].x;
   triangle[2].y = triangle[1].y;
-  triangle[3].x = triangle[0].x;
-  triangle[3].y = triangle[0].y;
 
-  PolygonRotateShift(triangle, 4, radar_mid,
+  PolygonRotateShift(triangle, 3, radar_mid,
                      task_direction - (enable_north_up ?
                                        Angle::Zero() : heading));
 
   // Draw the arrow
-  canvas.DrawPolygon(triangle, 4);
+  canvas.DrawPolygon(triangle, 3);
 }
 
 void
@@ -666,37 +664,37 @@ TrafficWidget::Windows::UpdateLayout(const PixelRect &rc) noexcept
   close_button.Move(button_rc);
 }
 
-TrafficWidget::TrafficWidget() = default;
+TrafficWidget::TrafficWidget() noexcept = default;
 TrafficWidget::~TrafficWidget() noexcept = default;
 
 void
-TrafficWidget::OpenDetails()
+TrafficWidget::OpenDetails() noexcept
 {
   windows->view.OpenDetails();
 }
 
 void
-TrafficWidget::ZoomIn()
+TrafficWidget::ZoomIn() noexcept
 {
   windows->view.ZoomIn();
   UpdateButtons();
 }
 
 void
-TrafficWidget::ZoomOut()
+TrafficWidget::ZoomOut() noexcept
 {
   windows->view.ZoomOut();
   UpdateButtons();
 }
 
 void
-TrafficWidget::PreviousTarget()
+TrafficWidget::PreviousTarget() noexcept
 {
   windows->view.PrevTarget();
 }
 
 void
-TrafficWidget::NextTarget()
+TrafficWidget::NextTarget() noexcept
 {
   windows->view.NextTarget();
 }
@@ -713,49 +711,49 @@ FlarmTrafficControl::SwitchData()
 }
 
 void
-TrafficWidget::SwitchData()
+TrafficWidget::SwitchData() noexcept
 {
   windows->view.SwitchData();
 }
 
 bool
-TrafficWidget::GetAutoZoom() const
+TrafficWidget::GetAutoZoom() const noexcept
 {
   return windows->view.GetAutoZoom();
 }
 
 void
-TrafficWidget::SetAutoZoom(bool value)
+TrafficWidget::SetAutoZoom(bool value) noexcept
 {
   windows->view.SetAutoZoom(value);
 }
 
 void
-TrafficWidget::ToggleAutoZoom()
+TrafficWidget::ToggleAutoZoom() noexcept
 {
   windows->view.ToggleAutoZoom();
 }
 
 bool
-TrafficWidget::GetNorthUp() const
+TrafficWidget::GetNorthUp() const noexcept
 {
   return windows->view.GetNorthUp();
 }
 
 void
-TrafficWidget::SetNorthUp(bool value)
+TrafficWidget::SetNorthUp(bool value) noexcept
 {
   windows->view.SetAutoZoom(value);
 }
 
 void
-TrafficWidget::ToggleNorthUp()
+TrafficWidget::ToggleNorthUp() noexcept
 {
   windows->view.ToggleNorthUp();
 }
 
 void
-TrafficWidget::Update()
+TrafficWidget::Update() noexcept
 {
   const NMEAInfo &basic = CommonInterface::Basic();
   const DerivedInfo &calculated = CommonInterface::Calculated();
@@ -888,13 +886,13 @@ FlarmTrafficControl::OnKeyDown(unsigned key_code)
 }
 
 void
-TrafficWidget::UpdateLayout()
+TrafficWidget::UpdateLayout() noexcept
 {
   windows->UpdateLayout(GetContainer().GetClientRect());
 }
 
 void
-TrafficWidget::UpdateButtons()
+TrafficWidget::UpdateButtons() noexcept
 {
   const bool unlocked = !windows->view.WarningMode();
   const TrafficList &traffic = CommonInterface::Basic().flarm.traffic;
@@ -909,7 +907,7 @@ TrafficWidget::UpdateButtons()
 }
 
 void
-TrafficWidget::Prepare(ContainerWindow &parent, const PixelRect &_rc)
+TrafficWidget::Prepare(ContainerWindow &parent, const PixelRect &_rc) noexcept
 {
   ContainerWidget::Prepare(parent, _rc);
 
@@ -922,7 +920,7 @@ TrafficWidget::Prepare(ContainerWindow &parent, const PixelRect &_rc)
 }
 
 void
-TrafficWidget::Show(const PixelRect &rc)
+TrafficWidget::Show(const PixelRect &rc) noexcept
 {
   // Update Radar and Selection for the first time
   Update();
@@ -937,14 +935,14 @@ TrafficWidget::Show(const PixelRect &rc)
 }
 
 void
-TrafficWidget::Hide()
+TrafficWidget::Hide() noexcept
 {
   CommonInterface::GetLiveBlackboard().RemoveListener(*this);
   ContainerWidget::Hide();
 }
 
 void
-TrafficWidget::Move(const PixelRect &rc)
+TrafficWidget::Move(const PixelRect &rc) noexcept
 {
   ContainerWidget::Move(rc);
 
@@ -953,7 +951,7 @@ TrafficWidget::Move(const PixelRect &rc)
 
 
 bool
-TrafficWidget::SetFocus()
+TrafficWidget::SetFocus() noexcept
 {
   windows->view.SetFocus();
   return true;

@@ -78,11 +78,13 @@ if 'mingw32' in actual_host_triplet:
     thirdparty_libs = [
         zlib,
         libsodium,
-        openssl,
         cares,
         curl,
         lua,
     ]
+
+    # Some libraries (such as CURL) want to use the min()/max() macros
+    cppflags = cppflags.replace('-DNOMINMAX', '')
 
     # Explicitly disable _FORTIFY_SOURCE because it is broken with
     # mingw.  This prevents some libraries such as libsodium to enable
@@ -103,6 +105,8 @@ elif re.match('(arm.*|aarch64)-apple-darwin', actual_host_triplet) is not None:
 elif 'apple-darwin' in actual_host_triplet:
     thirdparty_libs = [
         libsodium,
+        cares,
+        curl,
         lua,
         proj,
         libtiff,

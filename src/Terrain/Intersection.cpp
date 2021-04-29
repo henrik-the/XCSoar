@@ -40,14 +40,14 @@ RasterTileCache::FirstIntersection(const SignedRasterLocation origin,
                                    const int slope_fact, const int h_ceiling,
                                    const int h_safety,
                                    RasterLocation &_location, int &_h,
-                                   const bool can_climb) const
+                                   const bool can_climb) const noexcept
 {
   RasterLocation location = origin;
   if (!IsInside(location))
     // origin is outside overall bounds
     return false;
 
-  const TerrainHeight h_origin2 = GetFieldDirect(origin.x, origin.y).first;
+  const TerrainHeight h_origin2 = GetFieldDirect(location).first;
   if (h_origin2.IsInvalid()) {
     _location = location;
     _h = h_origin;
@@ -115,7 +115,7 @@ RasterTileCache::FirstIntersection(const SignedRasterLocation origin,
       if (!IsInside(location))
         break; // outside bounds
 
-      const auto field_direct = GetFieldDirect(location.x, location.y);
+      const auto field_direct = GetFieldDirect(location);
       if (field_direct.first.IsInvalid())
         break;
 
@@ -225,30 +225,29 @@ RasterTileCache::FirstIntersection(const SignedRasterLocation origin,
 }
 
 inline std::pair<TerrainHeight, bool>
-RasterTileCache::GetFieldDirect(const unsigned px, const unsigned py) const
+RasterTileCache::GetFieldDirect(RasterLocation p) const noexcept
 {
-  assert(px < width);
-  assert(py < height);
+  assert(p.x < size.x);
+  assert(p.y < size.y);
 
-  const RasterTile &tile = tiles.Get(px / tile_width, py / tile_height);
-  if (tile.IsEnabled())
-    return std::make_pair(tile.GetHeight(px, py), true);
+  const RasterTile &tile = tiles.Get(p.x / tile_size.x, p.y / tile_size.y);
+  if (tile.IsLoaded())
+    return std::make_pair(tile.GetHeight(p), true);
 
   // still not found, so go to overview
 
   // The overview might not cover the whole tile, if width or height are not
   // a multiple of 2^OVERVIEW_BITS.
-  unsigned x_overview = px >> OVERVIEW_BITS;
-  unsigned y_overview = py >> OVERVIEW_BITS;
-  assert(x_overview <= overview.GetWidth());
-  assert(y_overview <= overview.GetHeight());
+  auto p_overview = p >> OVERVIEW_BITS;
+  assert(p_overview.x <= overview.GetSize().x);
+  assert(p_overview.y <= overview.GetSize().y);
 
-  if (x_overview == overview.GetWidth())
-    x_overview--;
-  if (y_overview == overview.GetHeight())
-    y_overview--;
+  if (p_overview.x == overview.GetSize().x)
+    --p_overview.x;
+  if (p_overview.y == overview.GetSize().y)
+    --p_overview.y;
 
-  return std::make_pair(overview.Get(x_overview, y_overview), false);
+  return std::make_pair(overview.Get(p_overview), false);
 }
 
 SignedRasterLocation
@@ -256,7 +255,7 @@ RasterTileCache::Intersection(const SignedRasterLocation origin,
                               const SignedRasterLocation destination,
                               const int h_origin,
                               const int slope_fact,
-                              const int height_floor) const
+                              const int height_floor) const noexcept
 {
   SignedRasterLocation location = origin;
 
@@ -304,7 +303,7 @@ RasterTileCache::Intersection(const SignedRasterLocation origin,
       if (!IsInside(location))
         break;
 
-      const auto field_direct = GetFieldDirect(location.x, location.y);
+      const auto field_direct = GetFieldDirect(location);
       if (field_direct.first.IsInvalid())
         break;
 

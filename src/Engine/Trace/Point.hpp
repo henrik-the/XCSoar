@@ -28,7 +28,6 @@ Copyright_License {
 #include "Geo/SearchPoint.hpp"
 #include "Rough/RoughAltitude.hpp"
 #include "Rough/RoughVSpeed.hpp"
-#include "util/Compiler.h"
 
 #include <cassert>
 #include <cstdint>
@@ -37,7 +36,7 @@ struct MoreData;
 struct AircraftState;
 
 /**
- * Class for points used in traces (snail trail, OLC scans)
+ * Class for points used in traces (snail trail, contest scans)
  * Internally, keeps track of predecessors as a kind of a linked-list
  */
 class TracePoint : public SearchPoint
@@ -93,7 +92,7 @@ public:
    */
   explicit TracePoint(const AircraftState &state);
 
-  gcc_const
+  [[gnu::const]]
   static TracePoint Invalid() {
     TracePoint point;
     point.Clear();

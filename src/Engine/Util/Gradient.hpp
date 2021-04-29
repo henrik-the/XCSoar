@@ -22,8 +22,6 @@
 #ifndef GRADIENT_HPP
 #define GRADIENT_HPP
 
-#include "util/Compiler.h"
-
 /** 
  * Convert angle or (approximate) inverse-gradient to gradient.
  * Where absolute value of gradient is greater than 999 or undefined,
@@ -33,9 +31,9 @@
  * 
  * @return Gradient equivalent to angle
  */
-gcc_const
+[[gnu::const]]
 double
-AngleToGradient(const double d);
+AngleToGradient(const double d) noexcept;
 
 /**
  * Determines whether gradient is error value (999)
@@ -44,8 +42,8 @@ AngleToGradient(const double d);
  *
  * @return True if gradient effectively infinite
  */
-gcc_const
+[[gnu::const]]
 bool
-GradientValid(const double d);
+GradientValid(const double d) noexcept;
 
 #endif

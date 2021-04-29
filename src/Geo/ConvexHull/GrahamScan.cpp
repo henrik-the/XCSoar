@@ -30,7 +30,7 @@ sortleft
   return sp1.Sort(sp2);
 }
 
-gcc_const
+[[gnu::const]]
 static int
 Sign(double value, double tolerance)
 {
@@ -211,7 +211,6 @@ GrahamScan::PruneInterior()
   res.reserve(size + 1);
 
   if (size < 3) {
-    std::copy(raw_points.begin(), raw_points.end(), std::back_inserter(res));
     return false;
     // nothing to do
   }

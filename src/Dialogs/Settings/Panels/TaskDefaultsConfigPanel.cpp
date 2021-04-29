@@ -59,16 +59,16 @@ public:
   void SetFinishLabel();
 
   /* methods from Widget */
-  virtual void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  virtual bool Save(bool &changed) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
 private:
   /* methods from DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 void
-TaskDefaultsConfigPanel::OnModified(DataField &df)
+TaskDefaultsConfigPanel::OnModified(DataField &df) noexcept
 {
   if (IsDataField(StartType, df))
     SetStartLabel();
@@ -130,7 +130,8 @@ FillPointTypes(WndProperty &wp,
 }
 
 void
-TaskDefaultsConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
+TaskDefaultsConfigPanel::Prepare(ContainerWindow &parent,
+                                 const PixelRect &rc) noexcept
 {
   WndProperty *wp;
   const ComputerSettings &settings_computer = CommonInterface::GetComputerSettings();
@@ -205,7 +206,7 @@ TaskDefaultsConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
 }
 
 bool
-TaskDefaultsConfigPanel::Save(bool &_changed)
+TaskDefaultsConfigPanel::Save(bool &_changed) noexcept
 {
   bool changed = false;
 

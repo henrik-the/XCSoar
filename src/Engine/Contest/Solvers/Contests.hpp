@@ -21,17 +21,15 @@ Copyright_License {
 }
 */
 
-#ifndef OLC_RULES_HPP
-#define OLC_RULES_HPP
-
-#include "util/Compiler.h"
+#ifndef CONTEST_RULES_HPP
+#define CONTEST_RULES_HPP
 
 #include <cstdint>
 #include <tchar.h>
 
 enum class Contest : uint8_t;
 
-gcc_const
+[[gnu::const]]
 const TCHAR *
 ContestToString(Contest contest) noexcept;
 

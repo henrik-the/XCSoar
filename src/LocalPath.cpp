@@ -162,9 +162,9 @@ ExpandLocalPath(Path src)
 
 #ifndef _WIN32
   // Convert backslashes to slashes on platforms where it matters
-  tstring src2(src.c_str());
+  tstring src2(ptr);
   std::replace(src2.begin(), src2.end(), '\\', '/');
-  src = Path(src2.c_str());
+  ptr = src2.c_str();
 #endif
 
   // Replace the code "%LOCAL_PATH%\\" by the full local path (output)
@@ -359,24 +359,23 @@ FindDataPath()
     }
 
     /* try Context.getExternalStoragePublicDirectory() */
-    char buffer[MAX_PATH];
-    if (Environment::getExternalStoragePublicDirectory(buffer, sizeof(buffer),
-                                                       "XCSoarData") != nullptr) {
+    if (auto path = Environment::getExternalStoragePublicDirectory("XCSoarData");
+        path != nullptr) {
       __android_log_print(ANDROID_LOG_DEBUG, "XCSoar",
                           "Environment.getExternalStoragePublicDirectory()='%s'",
-                          buffer);
-      return Path(buffer);
+                          path.c_str());
+      return path;
     }
 
     /* now try Context.getExternalStorageDirectory(), because
        getExternalStoragePublicDirectory() needs API level 8 */
-    if (Environment::getExternalStorageDirectory(buffer,
-                                                 sizeof(buffer) - 32) != nullptr) {
+    if (auto path = Environment::getExternalStorageDirectory();
+        path != nullptr) {
       __android_log_print(ANDROID_LOG_DEBUG, "XCSoar",
                           "Environment.getExternalStorageDirectory()='%s'",
-                          buffer);
+                          path.c_str());
 
-      return AllocatedPath::Build(buffer, XCSDATADIR);
+      return AllocatedPath::Build(path, XCSDATADIR);
     }
 
     /* hard-coded path for Android */

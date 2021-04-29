@@ -29,14 +29,8 @@ Copyright_License {
 #include "Asset.hpp"
 #include "Scope.hpp"
 #include "util/Compiler.h"
-#include "Shaders.hpp"
-#include "Program.hpp"
 
 #include <glm/gtc/type_ptr.hpp>
-
-#ifdef HAVE_OES_DRAW_TEXTURE
-#include <GLES/glext.h>
-#endif
 
 #ifdef ENABLE_SDL
 #include <SDL.h>
@@ -48,9 +42,8 @@ Copyright_License {
 unsigned num_textures;
 #endif
 
-gcc_const gcc_unused
-static unsigned
-NextPowerOfTwo(unsigned i)
+static constexpr unsigned
+NextPowerOfTwo(unsigned i) noexcept
 {
   unsigned p = 1;
   while (p < i)
@@ -60,14 +53,14 @@ NextPowerOfTwo(unsigned i)
 
 gcc_const
 static inline unsigned
-ValidateTextureSize(unsigned i)
+ValidateTextureSize(unsigned i) noexcept
 {
   return OpenGL::texture_non_power_of_two ? i : NextPowerOfTwo(i);
 }
 
 gcc_const
 static inline PixelSize
-ValidateTextureSize(PixelSize size)
+ValidateTextureSize(PixelSize size) noexcept
 {
   return { ValidateTextureSize(size.width), ValidateTextureSize(size.height) };
 }
@@ -78,7 +71,7 @@ ValidateTextureSize(PixelSize size)
  */
 static void
 LoadTextureAutoAlign(GLint internal_format, PixelSize size,
-                     GLenum format, GLenum type, const GLvoid *pixels)
+                     GLenum format, GLenum type, const GLvoid *pixels) noexcept
 {
   assert(pixels != nullptr);
 
@@ -96,7 +89,7 @@ LoadTextureAutoAlign(GLint internal_format, PixelSize size,
   }
 }
 
-GLTexture::GLTexture(PixelSize _size, bool _flipped)
+GLTexture::GLTexture(PixelSize _size, bool _flipped) noexcept
   :size(_size), allocated_size(ValidateTextureSize(_size)), flipped(_flipped)
 {
   Initialise();
@@ -108,7 +101,7 @@ GLTexture::GLTexture(PixelSize _size, bool _flipped)
 
 GLTexture::GLTexture(GLint internal_format, PixelSize _size,
                      GLenum format, GLenum type, const GLvoid *data,
-                     bool _flipped)
+                     bool _flipped) noexcept
   :size(_size), allocated_size(ValidateTextureSize(_size)), flipped(_flipped)
 {
   Initialise();
@@ -116,7 +109,7 @@ GLTexture::GLTexture(GLint internal_format, PixelSize _size,
 }
 
 void
-GLTexture::ResizeDiscard(PixelSize new_size)
+GLTexture::ResizeDiscard(PixelSize new_size) noexcept
 {
   const PixelSize validated_size = ValidateTextureSize(new_size);
   const PixelSize old_size = GetAllocatedSize();
@@ -137,7 +130,7 @@ GLTexture::ResizeDiscard(PixelSize new_size)
 }
 
 void
-GLTexture::Initialise()
+GLTexture::Initialise() noexcept
 {
 #ifndef NDEBUG
   ++num_textures;
@@ -149,7 +142,7 @@ GLTexture::Initialise()
 }
 
 void
-GLTexture::Configure()
+GLTexture::Configure() noexcept
 {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -160,7 +153,7 @@ GLTexture::Configure()
 }
 
 void
-GLTexture::EnableInterpolation()
+GLTexture::EnableInterpolation() noexcept
 {
   if (IsEmbedded()) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -168,39 +161,9 @@ GLTexture::EnableInterpolation()
   }
 }
 
-#ifdef HAVE_OES_DRAW_TEXTURE
-
-inline void
-GLTexture::DrawOES(PixelRect dest, PixelRect src) const
-{
-  const GLint rect[4] = {
-    src.left,
-    flipped ? src.top : src.bottom,
-    GLint(src.GetWidth()),
-    flipped ? (GLint)src.GetHeight() : -(GLint)src.GetHeight()
-  };
-
-  glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_CROP_RECT_OES, rect);
-
-  /* glDrawTexiOES() circumvents the projection settings, thus we must
-     roll our own translation */
-  glDrawTexiOES(OpenGL::translate.x + dest.left,
-                OpenGL::viewport_size.y - OpenGL::translate.y - dest.bottom,
-                0, dest.GetWidth(), dest.GetHeight());
-}
-
-#endif
-
 void
-GLTexture::Draw(PixelRect dest, PixelRect src) const
+GLTexture::Draw(PixelRect dest, PixelRect src) const noexcept
 {
-#ifdef HAVE_OES_DRAW_TEXTURE
-  if (OpenGL::oes_draw_texture) {
-    DrawOES(dest, src);
-    return;
-  }
-#endif
-
   const BulkPixelPoint vertices[] = {
     dest.GetTopLeft(),
     dest.GetTopRight(),
@@ -230,5 +193,4 @@ GLTexture::Draw(PixelRect dest, PixelRect src) const
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
   glDisableVertexAttribArray(OpenGL::Attribute::TEXCOORD);
-  OpenGL::solid_shader->Use();
 }

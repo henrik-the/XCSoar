@@ -646,7 +646,7 @@ XCSOAR_SOURCES := \
 	$(SRC)/Math/SunEphemeris.cpp \
 	\
 	$(SRC)/Screen/Layout.cpp \
-	$(SRC)/Screen/TerminalWindow.cpp \
+	$(SRC)/ui/control/TerminalWindow.cpp \
 	\
 	$(SRC)/Look/FontDescription.cpp \
 	$(SRC)/Look/GlobalFonts.cpp \
@@ -713,6 +713,7 @@ XCSOAR_SOURCES += \
 	$(SRC)/java/String.cxx \
 	$(SRC)/java/Exception.cxx \
 	$(SRC)/java/File.cxx \
+	$(SRC)/java/Path.cxx \
 	$(SRC)/java/InputStream.cxx \
 	$(SRC)/java/URL.cxx \
 	$(SRC)/Device/Port/AndroidPort.cpp \
@@ -747,11 +748,6 @@ XCSOAR_SOURCES += \
 	$(SRC)/Android/VoltageDevice.cpp \
 	$(SRC)/Android/IOIOHelper.cpp \
 	$(SRC)/Android/Main.cpp
-
-ifeq ($(DEBUG),y)
-XCSOAR_SOURCES += \
-	$(SRC)/Android/Assert.cpp
-endif
 
 else
 XCSOAR_SOURCES += \
@@ -793,6 +789,7 @@ ifeq ($(HAVE_PCM_PLAYER),y)
 XCSOAR_SOURCES += $(SRC)/Audio/VarioGlue.cpp
 endif
 
+XCSOAR_LDADD = $(IO_LDADD)
 XCSOAR_DEPENDS = GETTEXT PROFILE \
 	TERRAIN \
 	WIDGET FORM DATA_FIELD \
@@ -800,7 +797,7 @@ XCSOAR_DEPENDS = GETTEXT PROFILE \
 	AUDIO SCREEN EVENT \
 	RESOURCE DATA \
 	DRIVER PORT \
-	IO ASYNC TASK CONTEST ROUTE GLIDE WAYPOINT AIRSPACE \
+	LIBHTTP IO ASYNC TASK CONTEST ROUTE GLIDE WAYPOINT AIRSPACE \
 	LUA \
 	SHAPELIB ZZIP \
 	LIBNET TIME OS THREAD \

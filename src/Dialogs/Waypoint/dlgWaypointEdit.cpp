@@ -47,7 +47,7 @@ class WaypointEditWidget final : public RowFormWidget, DataFieldListener {
   bool modified;
 
 public:
-  WaypointEditWidget(const DialogLook &look, Waypoint _value)
+  WaypointEditWidget(const DialogLook &look, const Waypoint &_value) noexcept
     :RowFormWidget(look), value(_value), modified(false) {}
 
   const Waypoint &GetValue() const {
@@ -56,11 +56,11 @@ public:
 
 private:
   /* virtual methods from Widget */
-  void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  bool Save(bool &changed) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
   /* virtual methods from DataFieldListener */
-  void OnModified(gcc_unused DataField &df) override {
+  void OnModified(gcc_unused DataField &df) noexcept override {
     modified = true;
   }
 };
@@ -74,7 +74,7 @@ static constexpr StaticEnumChoice waypoint_types[] = {
 
 void
 WaypointEditWidget::Prepare(gcc_unused ContainerWindow &parent,
-                            gcc_unused const PixelRect &rc)
+                            gcc_unused const PixelRect &rc) noexcept
 {
   AddText(_("Name"), nullptr, value.name.c_str(), this);
   AddText(_("Comment"), nullptr, value.comment.c_str(), this);
@@ -92,7 +92,7 @@ WaypointEditWidget::Prepare(gcc_unused ContainerWindow &parent,
 }
 
 bool
-WaypointEditWidget::Save(bool &_changed)
+WaypointEditWidget::Save(bool &_changed) noexcept
 {
   bool changed = modified;
   value.name = GetValueString(NAME);
@@ -120,7 +120,7 @@ WaypointEditWidget::Save(bool &_changed)
   return true;
 }
 
-bool
+WaypointEditResult
 dlgWaypointEditShowModal(Waypoint &way_point)
 {
   if (UIGlobals::GetFormatSettings().coordinate_format ==
@@ -128,21 +128,24 @@ dlgWaypointEditShowModal(Waypoint &way_point)
     ShowMessageBox(
         _("Sorry, the waypoint editor is not yet available for the UTM coordinate format."),
         _("Waypoint Editor"), MB_OK);
-    return false;
+    return WaypointEditResult::CANCEL;
   }
 
   const DialogLook &look = UIGlobals::GetDialogLook();
-  WaypointEditWidget widget(look, way_point);
-  WidgetDialog dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
-                      look, _("Waypoint Editor"), &widget);
+  TWidgetDialog<WaypointEditWidget>
+    dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
+           look, _("Waypoint Editor"));
   dialog.AddButton(_("OK"), mrOK);
   dialog.AddButton(_("Cancel"), mrCancel);
+  dialog.SetWidget(look, way_point);
   const int result = dialog.ShowModal();
-  dialog.StealWidget();
 
-  if (result != mrOK || !dialog.GetChanged())
-    return false;
+  if (result != mrOK)
+    return WaypointEditResult::CANCEL;
 
-  way_point = widget.GetValue();
-  return true;
+  if (!dialog.GetChanged())
+    return WaypointEditResult::UNMODIFIED;
+
+  way_point = dialog.GetWidget().GetValue();
+  return WaypointEditResult::MODIFIED;
 }

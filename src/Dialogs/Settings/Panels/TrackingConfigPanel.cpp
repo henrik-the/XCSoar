@@ -80,12 +80,12 @@ public:
 #endif
 
   /* methods from Widget */
-  virtual void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  virtual bool Save(bool &changed) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
 private:
   /* methods from DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 #ifdef HAVE_SKYLINES_TRACKING
@@ -121,7 +121,7 @@ TrackingConfigPanel::SetLiveTrack24Enabled(bool enabled)
 #endif
 
 void
-TrackingConfigPanel::OnModified(DataField &df)
+TrackingConfigPanel::OnModified(DataField &df) noexcept
 {
 #ifdef HAVE_SKYLINES_TRACKING
   if (IsDataField(SL_ENABLED, df)) {
@@ -191,7 +191,7 @@ static constexpr StaticEnumChoice vehicle_type_list[] = {
 #endif
 
 void
-TrackingConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
+TrackingConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept
 {
   const TrackingSettings &settings =
     CommonInterface::GetComputerSettings().tracking;
@@ -270,7 +270,7 @@ SaveKey(const RowFormWidget &form, unsigned idx, const char *profile_key,
 #endif
 
 bool
-TrackingConfigPanel::Save(bool &_changed)
+TrackingConfigPanel::Save(bool &_changed) noexcept
 {
   bool changed = false;
 

@@ -25,20 +25,20 @@ Copyright_License {
 #define XCSOAR_RASTERTILE_HPP
 
 #include "RasterTraits.hpp"
+#include "RasterLocation.hpp"
 #include "RasterBuffer.hpp"
 
-#include <stdio.h>
-
 struct jas_matrix;
+class BufferedOutputStream;
+class BufferedReader;
 
 class RasterTile {
   struct MetaData {
-    unsigned int xstart, ystart, xend, yend;
+    RasterLocation start, end;
   };
 
 public:
-  unsigned xstart = 0, ystart = 0, xend = 0, yend = 0;
-  unsigned width = 0, height = 0;
+  RasterLocation start{0, 0}, end, size{0, 0};
 
   /**
    * The distance of this tile to the center of the screen.  This
@@ -51,69 +51,62 @@ public:
   RasterBuffer buffer;
 
 public:
-  RasterTile() = default;
+  RasterTile() noexcept = default;
 
   RasterTile(const RasterTile &) = delete;
   RasterTile &operator=(const RasterTile &) = delete;
 
-  void Set(unsigned _xstart, unsigned _ystart,
-           unsigned _xend, unsigned _yend) {
-    xstart = _xstart;
-    ystart = _ystart;
-    xend = _xend;
-    yend = _yend;
-    width = xend - xstart;
-    height = yend - ystart;
+  void Set(RasterLocation _start, RasterLocation _end) noexcept {
+    start = _start;
+    end = _end;
+    size = end - start;
   }
 
   /**
    * Permanently disable this tile after a failure.
    */
-  void Clear() {
-    width = height = 0;
+  void Clear() noexcept {
+    size = {0, 0};
     request = false;
   }
 
-  bool IsDefined() const {
-    return width > 0 && height > 0;
+  bool IsDefined() const noexcept {
+    return size.x > 0 && size.y > 0;
   }
 
-  int GetDistance() const {
+  int GetDistance() const noexcept {
     return distance;
   }
 
-  bool IsRequested() const {
+  bool IsRequested() const noexcept {
     return request;
   }
 
-  void SetRequest() {
+  void SetRequest() noexcept {
     request = true;
   }
 
-  void ClearRequest() {
+  void ClearRequest() noexcept {
     request = false;
   }
 
-  bool SaveCache(FILE *file) const;
-  bool LoadCache(FILE *file);
+  void SaveCache(BufferedOutputStream &os) const;
+  void LoadCache(BufferedReader &r);
 
   gcc_pure
-  unsigned CalcDistanceTo(int x, int y) const;
+  unsigned CalcDistanceTo(IntPoint2D p) const noexcept;
 
-  bool CheckTileVisibility(int view_x, int view_y, unsigned view_radius);
+  bool CheckTileVisibility(IntPoint2D view, unsigned view_radius) noexcept;
 
-  void Disable() {
+  void Unload() noexcept {
     buffer.Reset();
   }
 
-  bool IsEnabled() const {
+  bool IsLoaded() const noexcept {
     return buffer.IsDefined();
   }
-  bool IsDisabled() const {
-    return !buffer.IsDefined();
-  }
 
-  void CopyFrom(const struct jas_matrix &m);
+  void CopyFrom(const struct jas_matrix &m) noexcept;
 
   /**
    * Determine the non-interpolated height at the specified pixel
@@ -123,7 +116,7 @@ public:
    * @param y the pixel row within the tile; may be out of range
    */
   gcc_pure
-  TerrainHeight GetHeight(unsigned x, unsigned y) const;
+  TerrainHeight GetHeight(RasterLocation p) const noexcept;
 
   /**
    * Determine the interpolated height at the specified sub-pixel
@@ -136,17 +129,16 @@ public:
    */
   gcc_pure
   TerrainHeight GetInterpolatedHeight(unsigned x, unsigned y,
-                                      unsigned ix, unsigned iy) const;
+                                      unsigned ix, unsigned iy) const noexcept;
 
-  bool VisibilityChanged(int view_x, int view_y, unsigned view_radius);
+  bool VisibilityChanged(IntPoint2D view, unsigned view_radius) noexcept;
 
-  void ScanLine(unsigned ax, unsigned ay, unsigned bx, unsigned by,
-                TerrainHeight *dest, unsigned size, bool interpolate) const {
-    buffer.ScanLine(ax - (xstart << RasterTraits::SUBPIXEL_BITS),
-                    ay - (ystart << RasterTraits::SUBPIXEL_BITS),
-                    bx - (xstart << RasterTraits::SUBPIXEL_BITS),
-                    by - (ystart << RasterTraits::SUBPIXEL_BITS),
-                    dest, size, interpolate);
+  void ScanLine(RasterLocation a, RasterLocation b,
+                TerrainHeight *dest, unsigned dest_size,
+                bool interpolate) const noexcept {
+    buffer.ScanLine(a - (start << RasterTraits::SUBPIXEL_BITS),
+                    b - (start << RasterTraits::SUBPIXEL_BITS),
+                    dest, dest_size, interpolate);
   }
 };
 

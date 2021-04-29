@@ -114,7 +114,7 @@ l_map_panto(lua_State *L)
 
   GeoPoint location = GeoPoint(Angle::Degrees(luaL_checknumber(L, 2)),
                   Angle::Degrees(luaL_checknumber(L, 1)));
- 
+
   PanTo(location);
   return 0;
 }
@@ -136,8 +136,9 @@ l_map_pancursor(lua_State *L)
     return 0;
 
   auto pt = projection.GetScreenOrigin();
-  pt.x -= dx * int(projection.GetScreenWidth()) / 4;
-  pt.y -= dy * int(projection.GetScreenHeight()) / 4;
+  const auto size = projection.GetScreenSize();
+  pt.x -= dx * int(size.width) / 4;
+  pt.y -= dy * int(size.height) / 4;
   map_window->SetLocation(projection.ScreenToGeo(pt));
 
   map_window->QuickRedraw();
@@ -180,8 +181,6 @@ l_map_zoom(lua_State *L)
   }
 
   MapSettings &settings_map = CommonInterface::SetMapSettings();
-  if (map_window == NULL)
-    return 0;
 
   const DisplayMode displayMode = CommonInterface::GetUIState().display_mode;
   if (settings_map.auto_zoom_enabled &&
@@ -191,7 +190,7 @@ l_map_zoom(lua_State *L)
     Profile::Set(ProfileKeys::AutoZoom, false);
     Message::AddMessage(_("Auto. zoom off"));
   }
- 
+
   auto vmin = CommonInterface::GetComputerSettings().polar.glide_polar_task.GetVMin();
   auto scale_2min_distance = vmin * 12;
   constexpr double scale_100m = 10;

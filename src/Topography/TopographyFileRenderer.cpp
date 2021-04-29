@@ -28,7 +28,7 @@ Copyright_License {
 #include "Renderer/LabelBlock.hpp"
 #include "Projection/WindowProjection.hpp"
 #include "ui/canvas/Canvas.hpp"
-#include "Screen/Features.hpp"
+#include "ui/canvas/Features.hpp"
 #include "Screen/Layout.hpp"
 #include "shapelib/mapserver.h"
 #include "util/AllocatedArray.hxx"
@@ -153,20 +153,17 @@ TopographyFileRenderer::PaintPoint(Canvas &canvas,
 
   // TODO: for now i assume there is only one point for point-XShapes
 
-  PixelPoint sc;
-  if (!projection.GeoToScreenIfVisible(file.ToGeoPoint(shape.GetPoints()[0]),
-                                       sc))
-    return;
-
+  if (auto p = projection.GeoToScreenIfVisible(file.ToGeoPoint(shape.GetPoints()[0]))) {
 #ifndef HAVE_GLES
-  glPushMatrix();
-  glLoadMatrixf(opengl_matrix);
+    glPushMatrix();
+    glLoadMatrixf(opengl_matrix);
 #endif
 
-  icon.Draw(canvas, sc);
+    icon.Draw(canvas, *p);
 #ifndef HAVE_GLES
-  glPopMatrix();
+    glPopMatrix();
 #endif
+  }
 }
 
 #else
@@ -184,9 +181,8 @@ TopographyFileRenderer::PaintPoint(Canvas &canvas,
   for (; lines < end_lines; ++lines) {
     const GeoPoint *end = points + *lines;
     for (; points < end; ++points) {
-      PixelPoint sc;
-      if (projection.GeoToScreenIfVisible(*points, sc))
-        icon.Draw(canvas, sc);
+      if (auto p = projection.GeoToScreenIfVisible(*points))
+        icon.Draw(canvas, *p);
     }
   }
 }

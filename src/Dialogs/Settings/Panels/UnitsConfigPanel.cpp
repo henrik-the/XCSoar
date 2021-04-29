@@ -58,12 +58,12 @@ public:
   void PresetCheck();
 
   /* methods from Widget */
-  virtual void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  virtual bool Save(bool &changed) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
 private:
   /* methods from DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 void
@@ -101,7 +101,7 @@ UnitsConfigPanel::PresetCheck()
 }
 
 void
-UnitsConfigPanel::OnModified(DataField &df)
+UnitsConfigPanel::OnModified(DataField &df) noexcept
 {
   if (IsDataField(UnitsPreset, df)) {
     const DataFieldEnum &dfe = (const DataFieldEnum &)df;
@@ -116,7 +116,8 @@ UnitsConfigPanel::OnModified(DataField &df)
 }
 
 void
-UnitsConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
+UnitsConfigPanel::Prepare(ContainerWindow &parent,
+                          const PixelRect &rc) noexcept
 {
   const UnitSetting &config = CommonInterface::GetUISettings().format.units;
   const CoordinateFormat coordinate_format =
@@ -257,7 +258,7 @@ UnitsConfigPanel::Prepare(ContainerWindow &parent, const PixelRect &rc)
 }
 
 bool
-UnitsConfigPanel::Save(bool &_changed)
+UnitsConfigPanel::Save(bool &_changed) noexcept
 {
   bool changed = false;
 

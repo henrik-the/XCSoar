@@ -57,21 +57,21 @@ public:
     return plane;
   }
 
-  void UpdateCaption();
-  void UpdatePolarButton();
-  void PolarButtonClicked();
+  void UpdateCaption() noexcept;
+  void UpdatePolarButton() noexcept;
+  void PolarButtonClicked() noexcept;
 
   /* virtual methods from Widget */
-  virtual void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
-  virtual bool Save(bool &changed) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
 private:
   /* methods from DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 void
-PlaneEditWidget::UpdateCaption()
+PlaneEditWidget::UpdateCaption() noexcept
 {
   if (dialog == nullptr)
     return;
@@ -82,7 +82,7 @@ PlaneEditWidget::UpdateCaption()
 }
 
 void
-PlaneEditWidget::UpdatePolarButton()
+PlaneEditWidget::UpdatePolarButton() noexcept
 {
   const TCHAR *caption = _("Polar");
   StaticString<64> buffer;
@@ -96,14 +96,14 @@ PlaneEditWidget::UpdatePolarButton()
 }
 
 void
-PlaneEditWidget::OnModified(DataField &df)
+PlaneEditWidget::OnModified(DataField &df) noexcept
 {
   if (IsDataField(REGISTRATION, df))
     UpdateCaption();
 }
 
 void
-PlaneEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+PlaneEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept
 {
   AddText(_("Registration"), nullptr, plane.registration, this);
   AddText(_("Comp. ID"), nullptr, plane.competition_id);
@@ -134,7 +134,7 @@ PlaneEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
 }
 
 bool
-PlaneEditWidget::Save(bool &_changed)
+PlaneEditWidget::Save(bool &_changed) noexcept
 {
   bool changed = false;
 
@@ -153,7 +153,7 @@ PlaneEditWidget::Save(bool &_changed)
 }
 
 inline void
-PlaneEditWidget::PolarButtonClicked()
+PlaneEditWidget::PolarButtonClicked() noexcept
 {
   bool changed = false;
   if (!Save(changed))
@@ -174,18 +174,17 @@ bool
 dlgPlaneDetailsShowModal(Plane &_plane)
 {
   const DialogLook &look = UIGlobals::GetDialogLook();
-  WidgetDialog dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
-                      look, _("Plane Details"));
-  PlaneEditWidget widget(_plane, look, &dialog);
+  TWidgetDialog<PlaneEditWidget>
+    dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
+           look, _("Plane Details"));
   dialog.AddButton(_("OK"), mrOK);
   dialog.AddButton(_("Cancel"), mrCancel);
-  dialog.FinishPreliminary(&widget);
+  dialog.SetWidget(_plane, look, &dialog);
   const int result = dialog.ShowModal();
-  dialog.StealWidget();
 
   if (result != mrOK)
     return false;
 
-  _plane = widget.GetValue();
+  _plane = dialog.GetWidget().GetValue();
   return true;
 }

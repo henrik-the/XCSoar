@@ -220,7 +220,8 @@ ActivatePan(const Waypoint &waypoint)
 }
 
 void
-WaypointCommandsWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+WaypointCommandsWidget::Prepare(ContainerWindow &parent,
+                                const PixelRect &rc) noexcept
 {
   RowFormWidget::Prepare(parent, rc);
 
@@ -275,7 +276,7 @@ WaypointCommandsWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
       /* move to user.cup */
       wp_copy.origin = WaypointOrigin::USER;
 
-      if (dlgWaypointEditShowModal(wp_copy)) {
+      if (dlgWaypointEditShowModal(wp_copy) == WaypointEditResult::MODIFIED) {
         // TODO: refresh data instead of closing dialog?
         form->SetModalResult(mrOK);
 

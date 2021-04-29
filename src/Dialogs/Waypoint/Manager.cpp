@@ -70,9 +70,9 @@ public:
   void SaveWaypoints();
 
   /* virtual methods from Widget */
-  void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
 
-  void Show(const PixelRect &rc) override {
+  void Show(const PixelRect &rc) noexcept override {
     ListWidget::Show(rc);
     Update();
   }
@@ -158,7 +158,8 @@ WaypointManagerWidget::UpdateList()
 }
 
 void
-WaypointManagerWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+WaypointManagerWidget::Prepare(ContainerWindow &parent,
+                               const PixelRect &rc) noexcept
 {
   const DialogLook &look = UIGlobals::GetDialogLook();
   CreateList(parent, look, rc,
@@ -194,7 +195,7 @@ WaypointManagerWidget::OnWaypointNewClicked()
     ? CommonInterface::Calculated().terrain_altitude
     : CommonInterface::Basic().nav_altitude;
 
-  if (dlgWaypointEditShowModal(edit_waypoint) &&
+  if (dlgWaypointEditShowModal(edit_waypoint) == WaypointEditResult::MODIFIED &&
       edit_waypoint.name.size()) {
     modified = true;
 
@@ -219,7 +220,7 @@ WaypointManagerWidget::OnWaypointImportClicked()
     /* move to user.cup */
     wp_copy.origin = WaypointOrigin::USER;
 
-    if (dlgWaypointEditShowModal(wp_copy)) {
+    if (dlgWaypointEditShowModal(wp_copy) != WaypointEditResult::CANCEL) {
       modified = true;
 
       {
@@ -238,12 +239,16 @@ WaypointManagerWidget::OnWaypointEditClicked(unsigned i)
 {
   const WaypointPtr &wp = items[i].waypoint;
   Waypoint wp_copy = *wp;
-  if (dlgWaypointEditShowModal(wp_copy)) {
+  if (dlgWaypointEditShowModal(wp_copy) == WaypointEditResult::MODIFIED) {
     modified = true;
 
-    ScopeSuspendAllThreads suspend;
-    way_points.Replace(wp, std::move(wp_copy));
-    way_points.Optimise();
+    {
+      ScopeSuspendAllThreads suspend;
+      way_points.Replace(wp, std::move(wp_copy));
+      way_points.Optimise();
+    }
+
+    Update();
   }
 }
 
@@ -289,18 +294,18 @@ void
 dlgConfigWaypointsShowModal()
 {
   const DialogLook &look = UIGlobals::GetDialogLook();
-  WaypointManagerWidget widget;
-  WidgetDialog dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
-                      look, _("Waypoints Editor"), &widget);
-  widget.CreateButtons(dialog);
+  TWidgetDialog<WaypointManagerWidget>
+    dialog(WidgetDialog::Auto{}, UIGlobals::GetMainWindow(),
+           look, _("Waypoints Editor"));
   dialog.AddButton(_("Close"), mrCancel);
+  dialog.SetWidget();
+  dialog.GetWidget().CreateButtons(dialog);
   dialog.EnableCursorSelection();
 
   dialog.ShowModal();
-  dialog.StealWidget();
 
-  if (widget.IsModified() &&
+  if (dialog.GetWidget().IsModified() &&
       ShowMessageBox(_("Save changes to waypoint file?"), _("Waypoints edited"),
                   MB_YESNO | MB_ICONQUESTION) == IDYES)
-      widget.SaveWaypoints();
+      dialog.GetWidget().SaveWaypoints();
 }

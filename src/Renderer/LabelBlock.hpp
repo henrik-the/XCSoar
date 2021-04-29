@@ -26,7 +26,6 @@ Copyright_License {
 
 #include "ui/dim/Rect.hpp"
 #include "util/StaticArray.hxx"
-#include "util/Compiler.h"
 
 /**
  * Simple code to prevent text writing over map city names.
@@ -54,12 +53,14 @@ class LabelBlock {
     BlockArray blocks;
 
   public:
-    void Clear();
+    void Clear() noexcept {
+      blocks.clear();
+    }
 
-    gcc_pure
-    bool Check(const PixelRect rc) const;
+    [[gnu::pure]]
+    bool Check(const PixelRect rc) const noexcept;
 
-    void Add(const PixelRect rc) {
+    void Add(const PixelRect rc) noexcept {
       if (!blocks.full())
         blocks.append(rc);
     }
@@ -68,8 +69,8 @@ class LabelBlock {
   Bucket buckets[BUCKET_COUNT];
 
 public:
-  bool check(const PixelRect rc);
-  void reset();
+  bool check(const PixelRect rc) noexcept;
+  void reset() noexcept;
 };
 
 #endif

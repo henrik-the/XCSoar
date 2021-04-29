@@ -24,7 +24,7 @@ Copyright_License {
 #ifndef XCSOAR_CALLBACK_WIDGET_HPP
 #define XCSOAR_CALLBACK_WIDGET_HPP
 
-#include "Screen/Features.hpp"
+#include "ui/canvas/Features.hpp"
 
 #ifdef HAVE_CLIPPING
 #include "PanelWidget.hpp"
@@ -50,16 +50,16 @@ class CallbackWidget
   void (*const callback)();
 
 public:
-  CallbackWidget(void (*_callback)())
+  CallbackWidget(void (*_callback)()) noexcept
     :callback(_callback) {}
 
 public:
-  bool Click() override;
-  void ReClick() override;
+  bool Click() noexcept override;
+  void ReClick() noexcept override;
 
 #ifndef HAVE_CLIPPING
-  void Show(const PixelRect &rc) override;
-  void Hide() override;
+  void Show(const PixelRect &rc) noexcept override;
+  void Hide() noexcept override;
 #endif
 };
 

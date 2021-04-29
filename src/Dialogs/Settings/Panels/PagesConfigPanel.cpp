@@ -49,7 +49,7 @@ class PageLayoutEditWidget final
 public:
   class Listener {
   public:
-    virtual void OnModified(const PageLayout &new_value) = 0;
+    virtual void OnModified(const PageLayout &new_value) noexcept = 0;
   };
 
 private:
@@ -73,11 +73,11 @@ public:
   void SetValue(const PageLayout &_value);
 
   /* virtual methods from class Widget */
-  virtual void Prepare(ContainerWindow &parent, const PixelRect &rc) override;
+  void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
 
 private:
   /* virtual methods from class DataFieldListener */
-  virtual void OnModified(DataField &df) override;
+  void OnModified(DataField &df) noexcept override;
 };
 
 class PageListWidget
@@ -164,10 +164,10 @@ public:
   }
 
   /* virtual methods from class Widget */
-  virtual void Initialise(ContainerWindow &parent,
-                          const PixelRect &rc) override;
-  virtual void Show(const PixelRect &rc) override;
-  virtual bool Save(bool &changed) override;
+  void Initialise(ContainerWindow &parent,
+                  const PixelRect &rc) noexcept override;
+  void Show(const PixelRect &rc) noexcept override;
+  bool Save(bool &changed) noexcept override;
 
   /* virtual methods from class ListItemRenderer */
   void OnPaintItem(Canvas &canvas, const PixelRect rc,
@@ -181,11 +181,11 @@ public:
   void OnActivateItem(unsigned index) noexcept override;
 
   /* virtual methods from class PageLayoutEditWidget::Listener */
-  virtual void OnModified(const PageLayout &new_value) override;
+  void OnModified(const PageLayout &new_value) noexcept override;
 };
 
 void
-PageLayoutEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc)
+PageLayoutEditWidget::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept
 {
   const InfoBoxSettings &info_box_settings =
     CommonInterface::GetUISettings().info_boxes;
@@ -269,7 +269,7 @@ PageLayoutEditWidget::SetValue(const PageLayout &_value)
 }
 
 void
-PageLayoutEditWidget::OnModified(DataField &df)
+PageLayoutEditWidget::OnModified(DataField &df) noexcept
 {
   if (&df == &GetDataField(MAIN)) {
     const DataFieldEnum &dfe = (const DataFieldEnum &)df;
@@ -299,7 +299,8 @@ PageLayoutEditWidget::OnModified(DataField &df)
 }
 
 void
-PageListWidget::Initialise(ContainerWindow &parent, const PixelRect &rc)
+PageListWidget::Initialise(ContainerWindow &parent,
+                           const PixelRect &rc) noexcept
 {
   const DialogLook &look = UIGlobals::GetDialogLook();
 
@@ -314,7 +315,7 @@ PageListWidget::Initialise(ContainerWindow &parent, const PixelRect &rc)
 }
 
 void
-PageListWidget::Show(const PixelRect &rc)
+PageListWidget::Show(const PixelRect &rc) noexcept
 {
   editor->SetValue(settings.pages[GetList().GetCursorIndex()]);
 
@@ -322,7 +323,7 @@ PageListWidget::Show(const PixelRect &rc)
 }
 
 bool
-PageListWidget::Save(bool &_changed)
+PageListWidget::Save(bool &_changed) noexcept
 {
   bool changed = false;
 
@@ -425,7 +426,7 @@ PageListWidget::OnActivateItem(unsigned idx) noexcept
 }
 
 void
-PageListWidget::OnModified(const PageLayout &new_value)
+PageListWidget::OnModified(const PageLayout &new_value) noexcept
 {
   unsigned i = GetList().GetCursorIndex();
   assert(i < PageSettings::MAX_PAGES);

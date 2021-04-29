@@ -85,15 +85,17 @@ FlightStatisticsRenderer::DrawContestTriangle(Canvas &canvas, const Projection &
 }
 
 void
-FlightStatisticsRenderer::RenderOLC(Canvas &canvas, const PixelRect rc,
-                                    const NMEAInfo &nmea_info,
-                                    const ComputerSettings &settings_computer,
-                                    const MapSettings &settings_map,
-                                    const ContestStatistics &contest,
-                                    const TraceComputer &trace_computer,
-                                    const Retrospective &retrospective) const
+FlightStatisticsRenderer::RenderContest(Canvas &canvas, const PixelRect rc,
+                                        const NMEAInfo &nmea_info,
+                                        const ComputerSettings &settings_computer,
+                                        const MapSettings &settings_map,
+                                        const ContestStatistics &contest,
+                                        const TraceComputer &trace_computer,
+                                        const Retrospective &retrospective) const
 {
   ChartRenderer chart(chart_look, canvas, rc);
+  chart.Begin();
+
   if (!trail_renderer.LoadTrace(trace_computer)) {
     chart.DrawNoData();
     return;
@@ -160,15 +162,29 @@ FlightStatisticsRenderer::RenderOLC(Canvas &canvas, const PixelRect rc,
     DrawContestSolution(canvas, proj, contest, 0);
     DrawContestTriangle(canvas, proj, contest, 1);
     break;
+
+  case Contest::WEGLIDE_FREE:
+    DrawContestSolution(canvas, proj, contest, 0);
+    break;
+
+  case Contest::WEGLIDE_DISTANCE:
+  case Contest::WEGLIDE_FAI:
+
+  case Contest::WEGLIDE_OR:
+    DrawContestSolution(canvas, proj, contest, 0);
+    break;
+
   }
 
   RenderMapScale(canvas, proj, rc_chart, map_look.overlay);
+
+  chart.Finish();
 }
 
 void
-FlightStatisticsRenderer::CaptionOLC(TCHAR *sTmp,
-                                     const ContestSettings &settings,
-                                     const DerivedInfo &derived)
+FlightStatisticsRenderer::CaptionContest(TCHAR *sTmp,
+                                         const ContestSettings &settings,
+                                         const DerivedInfo &derived)
 {
   if (settings.contest == Contest::OLC_PLUS) {
     const ContestResult& result =
@@ -249,6 +265,7 @@ FlightStatisticsRenderer::RenderTask(Canvas &canvas, const PixelRect rc,
                                      const TraceComputer *trace_computer) const
 {
   ChartRenderer chart(chart_look, canvas, rc);
+  chart.Begin();
 
   ChartProjection proj;
 
@@ -258,7 +275,7 @@ FlightStatisticsRenderer::RenderTask(Canvas &canvas, const PixelRect rc,
     ProtectedTaskManager::Lease task_manager(_task_manager);
     const OrderedTask &task = task_manager->GetOrderedTask();
 
-    if (!task.CheckTask()) {
+    if (IsError(task.CheckTask())) {
       chart.DrawNoData();
       return;
     }
@@ -285,6 +302,8 @@ FlightStatisticsRenderer::RenderTask(Canvas &canvas, const PixelRect rc,
   }
 
   RenderMapScale(canvas, proj, rc_chart, map_look.overlay);
+
+  chart.Finish();
 }
 
 void
