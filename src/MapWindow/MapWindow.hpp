@@ -63,6 +63,8 @@ namespace SkyLinesTracking {
   struct Data;
 }
 
+namespace TIM { class Glue; }
+
 class MapWindow :
   public DoubleBufferWindow,
   public MapWindowBlackboard
@@ -158,6 +160,10 @@ protected:
   const SkyLinesTracking::Data *skylines_data = nullptr;
 #endif
 
+#ifdef HAVE_HTTP
+  const TIM::Glue *tim_glue = nullptr;
+#endif
+
   bool compass_visible = true;
 
 #ifndef ENABLE_OPENGL
@@ -202,7 +208,7 @@ public:
 
   void SetWaypoints(const Waypoints *_waypoints) {
     waypoints = _waypoints;
-    waypoint_renderer.set_way_points(waypoints);
+    waypoint_renderer.SetWaypoints(waypoints);
   }
 
   void SetTask(ProtectedTaskManager *_task) {
@@ -249,6 +255,12 @@ public:
   }
 #endif
 
+#ifdef HAVE_HTTP
+  void SetThermalInfoMap(const TIM::Glue *_tim) {
+    tim_glue = _tim;
+  }
+#endif
+
   void FlushCaches();
 
   using MapWindowBlackboard::ReadBlackboard;
@@ -287,7 +299,7 @@ protected:
   void DrawWaypoints(Canvas &canvas);
 
   void DrawTrail(Canvas &canvas, PixelPoint aircraft_pos,
-                 unsigned min_time, bool enable_traildrift = false);
+                 TimeStamp min_time, bool enable_traildrift = false) noexcept;
   virtual void RenderTrail(Canvas &canvas, PixelPoint aircraft_pos);
   virtual void RenderTrackBearing(Canvas &canvas, PixelPoint aircraft_pos);
 
@@ -336,7 +348,7 @@ protected:
   virtual void OnPaint(Canvas& canvas) override;
 
   /* virtual methods from class DoubleBufferWindow */
-  virtual void OnPaintBuffer(Canvas& canvas) override;
+  virtual void OnPaintBuffer(Canvas& canvas) noexcept override;
 
 private:
   /**

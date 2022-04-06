@@ -25,9 +25,16 @@ Copyright_License {
 #include "DisplayOrientation.hpp"
 #include "event/SignalMonitor.hxx"
 
+#ifdef MESA_KMS
+#include "ui/display/Display.hpp"
+#endif
+
 namespace UI {
 
-EventQueue::EventQueue()
+EventQueue::EventQueue(Display &_display) noexcept
+#if defined(USE_X11) || defined(USE_WAYLAND) || defined(MESA_KMS)
+  :display(_display)
+#endif
 {
   SignalMonitorInit(event_loop);
   SignalMonitorRegister(SIGINT, BIND_THIS_METHOD(OnQuitSignal));
@@ -35,13 +42,36 @@ EventQueue::EventQueue()
   SignalMonitorRegister(SIGQUIT, BIND_THIS_METHOD(OnQuitSignal));
 }
 
-EventQueue::~EventQueue()
+EventQueue::~EventQueue() noexcept
 {
   SignalMonitorFinish();
 }
 
 void
-EventQueue::Push(const Event &event)
+EventQueue::Push(const Event &event) noexcept
+{
+  event_loop.Finish();
+
+  std::lock_guard<Mutex> lock(mutex);
+  events.push(event);
+}
+
+void
+EventQueue::Interrupt() noexcept
+{
+  {
+    std::lock_guard<Mutex> lock(mutex);
+    if (!events.empty())
+      return;
+
+    events.push(Event::NOP);
+  }
+
+  event_loop.Finish();
+}
+
+void
+EventQueue::Inject(const Event &event) noexcept
 {
   std::lock_guard<Mutex> lock(mutex);
   events.push(event);
@@ -49,32 +79,32 @@ EventQueue::Push(const Event &event)
 }
 
 void
-EventQueue::Poll()
+EventQueue::Poll() noexcept
 {
-  event_loop.ResetBreak();
+  event_loop.ResetFinish();
   event_loop.Run();
 }
 
-void
-EventQueue::PushKeyPress(unsigned key_code)
-{
-  Push(Event(Event::KEY_DOWN, key_code));
-  Push(Event(Event::KEY_UP, key_code));
-}
-
 bool
-EventQueue::Generate(Event &event)
+EventQueue::Generate(Event &event) noexcept
 {
 #ifndef NON_INTERACTIVE
   if (input_queue.Generate(event))
     return true;
 #endif
 
+#ifdef MESA_KMS
+  if (display.CheckDirty()) {
+    event = Event::EXPOSE;
+    return true;
+  }
+#endif
+
   return false;
 }
 
 bool
-EventQueue::Pop(Event &event)
+EventQueue::Pop(Event &event) noexcept
 {
   if (quit)
     return false;
@@ -91,7 +121,7 @@ EventQueue::Pop(Event &event)
 }
 
 bool
-EventQueue::Wait(Event &event)
+EventQueue::Wait(Event &event) noexcept
 {
   if (quit)
     return false;
@@ -123,7 +153,8 @@ EventQueue::Wait(Event &event)
 }
 
 void
-EventQueue::Purge(bool (*match)(const Event &event, void *ctx), void *ctx)
+EventQueue::Purge(bool (*match)(const Event &event, void *ctx) noexcept,
+                  void *ctx) noexcept
 {
   std::lock_guard<Mutex> lock(mutex);
   size_t n = events.size();
@@ -135,20 +166,20 @@ EventQueue::Purge(bool (*match)(const Event &event, void *ctx), void *ctx)
 }
 
 static bool
-match_type(const Event &event, void *ctx)
+match_type(const Event &event, void *ctx) noexcept
 {
   const Event::Type *type_p = (const Event::Type *)ctx;
   return event.type == *type_p;
 }
 
 void
-EventQueue::Purge(Event::Type type)
+EventQueue::Purge(Event::Type type) noexcept
 {
   Purge(match_type, &type);
 }
 
 static bool
-MatchCallback(const Event &event, void *ctx)
+MatchCallback(const Event &event, void *ctx) noexcept
 {
   const Event *match = (const Event *)ctx;
   return event.type == Event::CALLBACK && event.callback == match->callback &&
@@ -156,7 +187,7 @@ MatchCallback(const Event &event, void *ctx)
 }
 
 void
-EventQueue::Purge(Event::Callback callback, void *ctx)
+EventQueue::Purge(Event::Callback callback, void *ctx) noexcept
 {
   Event match(callback, ctx);
   Purge(MatchCallback, (void *)&match);

@@ -19,25 +19,25 @@
   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 }
  */
+
 #include "TerrainRoute.hpp"
 
-TerrainRoute::TerrainRoute():
-  m_inx_terrain(0, 0, 0)
+TerrainRoute::TerrainRoute() noexcept
+  :m_inx_terrain(0, 0, 0)
 {
-
 }
 
-bool
-TerrainRoute::CheckClearance(const RouteLink &e, RoutePoint& inp) const
+std::optional<RoutePoint>
+TerrainRoute::CheckClearance(const RouteLink &e) const noexcept
 {
-  if (CheckClearanceTerrain(e, inp))
-    return true;
-  m_inx_terrain = inp;
-  return false;
+  auto inp = CheckClearanceTerrain(e);
+  if (inp)
+    m_inx_terrain = *inp;
+  return inp;
 }
 
 void
-TerrainRoute::AddNearby(const RouteLink& e)
+TerrainRoute::AddNearby(const RouteLink &e) noexcept
 {
   AddNearbyTerrain(m_inx_terrain, e);
 }

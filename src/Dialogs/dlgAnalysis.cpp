@@ -218,6 +218,15 @@ protected:
     return true;
   }
 
+  bool HasFocus() const noexcept override {
+    return info.HasFocus() ||
+      details_button.HasFocus() ||
+      previous_button.HasFocus() ||
+      next_button.HasFocus() ||
+      close_button.HasFocus() ||
+      chart.HasFocus();
+  }
+
   bool KeyPress(unsigned key_code) noexcept override;
 };
 
@@ -544,7 +553,7 @@ AnalysisWidget::Update()
     dialog.SetCaption(sTmp);
     FlightStatisticsRenderer::CaptionTask(sTmp, calculated);
     info.SetText(sTmp);
-    SetCalcCaption(_("Task calc"));
+    SetCalcCaption(_("Task Calc"));
     break;
 
   case AnalysisPage::CONTEST:

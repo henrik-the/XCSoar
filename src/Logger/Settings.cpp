@@ -26,12 +26,13 @@ Copyright_License {
 void
 LoggerSettings::SetDefaults()
 {
-  time_step_cruise = 5;
-  time_step_circling = 1;
+  time_step_cruise = std::chrono::seconds{5};
+  time_step_circling = std::chrono::seconds{1};
   auto_logger = AutoLogger::ON;
   logger_id.clear();
   pilot_name.clear();
   copilot_name.clear();
+  crew_mass_template = 90;
 
   /* XXX disabled by default for now, until the FlightLogger
      implementation is finished */

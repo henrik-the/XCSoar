@@ -42,16 +42,23 @@ Copyright_License {
 #include <queue>
 
 enum class DisplayOrientation : uint8_t;
+struct PixelSize;
 
 namespace UI {
+
+class Display;
 
 class EventQueue final {
   ::EventLoop event_loop;
 
+#if defined(USE_X11) || defined(USE_WAYLAND) || defined(MESA_KMS)
+  Display &display;
+#endif
+
 #ifdef USE_X11
-  X11EventQueue input_queue{*this};
+  X11EventQueue input_queue{display, *this};
 #elif defined(USE_WAYLAND)
-  WaylandEventQueue input_queue{*this};
+  WaylandEventQueue input_queue{display, *this};
 #elif !defined(NON_INTERACTIVE)
   InputEventQueue input_queue{*this};
 #endif
@@ -65,77 +72,81 @@ class EventQueue final {
   bool quit = false;
 
 public:
-  EventQueue();
-  ~EventQueue();
+  explicit EventQueue(Display &display) noexcept;
+  ~EventQueue() noexcept;
 
   auto &GetEventLoop() noexcept {
     return event_loop;
   }
 
-#ifdef USE_X11
-  _XDisplay *GetDisplay() const {
-    return input_queue.GetDisplay();
+  void Suspend() noexcept {
+#if !defined(NON_INTERACTIVE) && !defined(USE_X11) && !defined(USE_WAYLAND)
+    input_queue.Suspend();
+#endif
   }
 
-  bool WasCtrlClick() const {
+  void Resume() noexcept {
+#if !defined(NON_INTERACTIVE) && !defined(USE_X11) && !defined(USE_WAYLAND)
+    input_queue.Resume();
+#endif
+  }
+
+#ifdef USE_X11
+  bool WasCtrlClick() const noexcept {
     return input_queue.WasCtrlClick();
   }
 #endif
 
 #ifdef USE_WAYLAND
-  struct wl_display *GetDisplay() {
-    return input_queue.GetDisplay();
-  }
-
-  struct wl_compositor *GetCompositor() {
+  struct wl_compositor *GetCompositor() noexcept {
     return input_queue.GetCompositor();
   }
 
-  struct wl_shell *GetShell() {
+  struct wl_shell *GetShell() noexcept {
     return input_queue.GetShell();
   }
 #endif
 
 #if defined(USE_X11) || defined(USE_WAYLAND)
-  bool IsVisible() const {
+  bool IsVisible() const noexcept {
     return input_queue.IsVisible();
   }
 #endif
 
-  void SetScreenSize(unsigned width, unsigned height) {
+  void SetScreenSize(const PixelSize &screen_size) noexcept {
 #if !defined(NON_INTERACTIVE) && !defined(USE_X11) && !defined(USE_WAYLAND)
-    input_queue.SetScreenSize(width, height);
+    input_queue.SetScreenSize(screen_size);
 #endif
   }
 
-  void SetDisplayOrientation(DisplayOrientation orientation) {
+  void SetDisplayOrientation(DisplayOrientation orientation) noexcept {
 #if !defined(NON_INTERACTIVE) && !defined(USE_X11) && !defined(USE_WAYLAND) && !defined(USE_LIBINPUT)
     input_queue.SetDisplayOrientation(orientation);
 #endif
   }
 
 #if !defined(NON_INTERACTIVE) && !defined(USE_X11) && !defined(USE_WAYLAND)
-  bool HasPointer() const {
+  bool HasPointer() const noexcept {
     return input_queue.HasPointer();
   }
 
 #ifdef USE_LIBINPUT
-  bool HasTouchScreen() const {
+  bool HasTouchScreen() const noexcept {
     return input_queue.HasTouchScreen();
   }
 
-  bool HasKeyboard() const {
+  bool HasKeyboard() const noexcept {
     return input_queue.HasKeyboard();
   }
 #endif
 
-  PixelPoint GetMousePosition() const {
+  PixelPoint GetMousePosition() const noexcept {
     return input_queue.GetMousePosition();
   }
 
 #endif /* !NON_INTERACTIVE */
 
-  bool IsQuit() const {
+  bool IsQuit() const noexcept {
     return quit;
   }
 
@@ -143,31 +154,46 @@ public:
     quit = true;
   }
 
-  void WakeUp() {
+  void WakeUp() noexcept {
     wake_event.Schedule();
   }
 
 private:
-  void Poll();
-  bool Generate(Event &event);
+  void Poll() noexcept;
+  bool Generate(Event &event) noexcept;
 
 public:
-  void Push(const Event &event);
+  /**
+   * Add an event to the queue; thread-unsafe version which must be
+   * called from the UI thread.
+   */
+  void Push(const Event &event) noexcept;
 
-  void Push(Event::Callback callback, void *ctx) {
-    Push(Event(callback, ctx));
+  /**
+   * Ensure that the next Wait() call finishes by injecting a NOP
+   * event.  This method is not thread-safe.
+   */
+  void Interrupt() noexcept;
+
+  /**
+   * Add an event to the queue; thread-safe version which may be
+   * called from any thread.
+   */
+  void Inject(const Event &event) noexcept;
+
+  void InjectCall(Event::Callback callback, void *ctx) {
+    Inject(Event{callback, ctx});
   }
 
-  void PushKeyPress(unsigned key_code);
+  bool Pop(Event &event) noexcept;
 
-  bool Pop(Event &event);
+  bool Wait(Event &event) noexcept;
 
-  bool Wait(Event &event);
+  void Purge(bool (*match)(const Event &event, void *ctx) noexcept,
+             void *ctx) noexcept;
 
-  void Purge(bool (*match)(const Event &event, void *ctx), void *ctx);
-
-  void Purge(enum Event::Type type);
-  void Purge(Event::Callback callback, void *ctx);
+  void Purge(enum Event::Type type) noexcept;
+  void Purge(Event::Callback callback, void *ctx) noexcept;
 
 private:
   void OnQuitSignal() noexcept {
@@ -176,7 +202,7 @@ private:
   }
 
   void OnWakeUp() noexcept {
-    event_loop.Break();
+    event_loop.Finish();
   }
 };
 

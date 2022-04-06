@@ -39,7 +39,7 @@ Copyright_License {
 #include <tchar.h>
 
 void
-UpdateInfoBoxHumidity(InfoBoxData &data)
+UpdateInfoBoxHumidity(InfoBoxData &data) noexcept
 {
   const NMEAInfo &basic = CommonInterface::Basic();
   if (!basic.humidity_available) {
@@ -52,7 +52,7 @@ UpdateInfoBoxHumidity(InfoBoxData &data)
 }
 
 void
-UpdateInfoBoxTemperature(InfoBoxData &data)
+UpdateInfoBoxTemperature(InfoBoxData &data) noexcept
 {
   const NMEAInfo &basic = CommonInterface::Basic();
   if (!basic.temperature_available) {
@@ -67,7 +67,7 @@ UpdateInfoBoxTemperature(InfoBoxData &data)
 }
 
 void
-InfoBoxContentTemperatureForecast::Update(InfoBoxData &data)
+InfoBoxContentTemperatureForecast::Update(InfoBoxData &data) noexcept
 {
   auto temperature = CommonInterface::GetComputerSettings().forecast_temperature;
   data.SetValue(_T("%2.1f"), temperature.ToUser());
@@ -76,7 +76,7 @@ InfoBoxContentTemperatureForecast::Update(InfoBoxData &data)
 }
 
 bool
-InfoBoxContentTemperatureForecast::HandleKey(const InfoBoxKeyCodes keycode)
+InfoBoxContentTemperatureForecast::HandleKey(const InfoBoxKeyCodes keycode) noexcept
 {
   switch(keycode) {
   case ibkUp:
@@ -108,13 +108,13 @@ const InfoBoxPanel wind_infobox_panels[] = {
 };
 
 const InfoBoxPanel *
-InfoBoxContentWindArrow::GetDialogContent()
+InfoBoxContentWindArrow::GetDialogContent() noexcept
 {
   return wind_infobox_panels;
 }
 
 void
-UpdateInfoBoxWindSpeed(InfoBoxData &data)
+UpdateInfoBoxWindSpeed(InfoBoxData &data) noexcept
 {
   const DerivedInfo &info = CommonInterface::Calculated();
   if (!info.wind_available) {
@@ -134,7 +134,7 @@ UpdateInfoBoxWindSpeed(InfoBoxData &data)
 }
 
 void
-UpdateInfoBoxWindBearing(InfoBoxData &data)
+UpdateInfoBoxWindBearing(InfoBoxData &data) noexcept
 {
   const DerivedInfo &info = CommonInterface::Calculated();
   if (!info.wind_available) {
@@ -150,7 +150,7 @@ UpdateInfoBoxWindBearing(InfoBoxData &data)
 }
 
 void
-UpdateInfoBoxHeadWind(InfoBoxData &data)
+UpdateInfoBoxHeadWind(InfoBoxData &data) noexcept
 {
   const DerivedInfo &info = CommonInterface::Calculated();
   if (!info.head_wind_available) {
@@ -167,7 +167,7 @@ UpdateInfoBoxHeadWind(InfoBoxData &data)
 }
 
 void
-UpdateInfoBoxHeadWindSimplified(InfoBoxData &data)
+UpdateInfoBoxHeadWindSimplified(InfoBoxData &data) noexcept
 {
   const NMEAInfo &basic = CommonInterface::Basic();
   if (!basic.ground_speed_available || !basic.airspeed_available) {
@@ -185,7 +185,7 @@ UpdateInfoBoxHeadWindSimplified(InfoBoxData &data)
 }
 
 void
-InfoBoxContentWindArrow::Update(InfoBoxData &data)
+InfoBoxContentWindArrow::Update(InfoBoxData &data) noexcept
 {
   const DerivedInfo &info = CommonInterface::Calculated();
   if (!info.wind_available || info.wind.IsZero()) {
@@ -193,12 +193,12 @@ InfoBoxContentWindArrow::Update(InfoBoxData &data)
     return;
   }
 
-  data.SetCustom();
+  data.SetCustom(info.wind_available.ToInteger());
 
   TCHAR speed_buffer[16];
   FormatUserWindSpeed(info.wind.norm, speed_buffer, true, false);
 
-  StaticString<32> buffer;
+  StaticString<36> buffer;
   buffer.Format(_T("%s / %s"),
                 FormatBearing(info.wind.bearing).c_str(),
                 speed_buffer);
@@ -206,11 +206,17 @@ InfoBoxContentWindArrow::Update(InfoBoxData &data)
 }
 
 void
-InfoBoxContentWindArrow::OnCustomPaint(Canvas &canvas, const PixelRect &rc)
+InfoBoxContentWindArrow::OnCustomPaint(Canvas &canvas,
+                                       const PixelRect &rc) noexcept
 {
+  constexpr unsigned arrow_width = 6;
+  constexpr unsigned arrow_tail_length = 3;
+
   const auto &info = CommonInterface::Calculated();
 
   const auto pt = rc.GetCenter();
+
+  const unsigned scale = Layout::Scale(100U);
 
   const unsigned padding = Layout::FastScale(10u);
   unsigned size = std::min(rc.GetWidth(), rc.GetHeight());
@@ -220,7 +226,7 @@ InfoBoxContentWindArrow::OnCustomPaint(Canvas &canvas, const PixelRect &rc)
 
   // Normalize the size because the Layout::Scale is applied
   // by the DrawArrow() function again
-  size = size * 100 / Layout::Scale(100);
+  size = size * 100 / scale;
 
   auto angle = info.wind.bearing - CommonInterface::Basic().attitude.heading;
 
@@ -232,5 +238,7 @@ InfoBoxContentWindArrow::OnCustomPaint(Canvas &canvas, const PixelRect &rc)
   auto style = CommonInterface::GetMapSettings().wind_arrow_style;
 
   WindArrowRenderer renderer(UIGlobals::GetLook().wind_arrow_info_box);
-  renderer.DrawArrow(canvas, pt, angle, length, style, offset);
+  renderer.DrawArrow(canvas, pt, angle,
+                     arrow_width, length, arrow_tail_length,
+                     style, offset, scale);
 }

@@ -51,18 +51,15 @@
  */
 class FlarmTrafficControl : public FlarmTrafficWindow {
 protected:
-  bool enable_auto_zoom, dragging;
-  unsigned zoom;
-  Angle task_direction;
+  bool enable_auto_zoom = true, dragging = false;
+  unsigned zoom = 2;
+  Angle task_direction = Angle::Degrees(-1);
   GestureManager gestures;
 
 public:
   FlarmTrafficControl(const FlarmTrafficLook &look)
     :FlarmTrafficWindow(look, Layout::Scale(10),
-                        Layout::GetMinimumControlHeight() + Layout::Scale(2)),
-     enable_auto_zoom(true), dragging(false),
-     zoom(2),
-     task_direction(Angle::Degrees(-1)) {}
+                        Layout::GetMinimumControlHeight() + Layout::Scale(2)) {}
 
 protected:
   void CalcAutoZoom();
@@ -287,9 +284,10 @@ FlarmTrafficControl::PaintTaskDirection(Canvas &canvas) const
   triangle[2].x = -triangle[1].x;
   triangle[2].y = triangle[1].y;
 
-  PolygonRotateShift(triangle, 3, radar_mid,
+  PolygonRotateShift(triangle, radar_mid,
                      task_direction - (enable_north_up ?
-                                       Angle::Zero() : heading));
+                                       Angle::Zero() : heading),
+                     Layout::FastScale(100u));
 
   // Draw the arrow
   canvas.DrawPolygon(triangle, 3);
@@ -702,10 +700,10 @@ TrafficWidget::NextTarget() noexcept
 void
 FlarmTrafficControl::SwitchData()
 {
-  if (side_display_type == FlarmTrafficWindow::SIDE_INFO_VARIO)
-    side_display_type = FlarmTrafficWindow::SIDE_INFO_RELATIVE_ALTITUDE;
+  if (side_display_type == FlarmTrafficWindow::SideInfoType::VARIO)
+    side_display_type = FlarmTrafficWindow::SideInfoType::RELATIVE_ALTITUDE;
   else
-    side_display_type = FlarmTrafficWindow::SIDE_INFO_VARIO;
+    side_display_type = FlarmTrafficWindow::SideInfoType::VARIO;
 
   Profile::SetEnum(ProfileKeys::FlarmSideData, side_display_type);
 }

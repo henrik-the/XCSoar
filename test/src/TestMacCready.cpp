@@ -91,9 +91,9 @@ Test(const double distance, const double altitude, const SpeedVector wind)
   const double altitude_difference = altitude - height_glide;
   const double height_climb = drifted_height_climb;
 
-  const double time_climb = height_climb / mc;
-  const double time_glide = height_glide / glide_polar.GetSBestLD();
-  const double time_elapsed = time_climb + time_glide;
+  const FloatDuration time_climb{height_climb / mc};
+  const FloatDuration time_glide{height_glide / glide_polar.GetSBestLD()};
+  const FloatDuration time_elapsed = time_climb + time_glide;
 
   /* more tolerance with strong wind because this unit test doesn't
      optimise pure glide */
@@ -141,7 +141,7 @@ TestAll()
 
 int main(int argc, char **argv)
 {
-  plan_tests(2095);
+  plan_tests(2103);
 
   glide_settings.SetDefaults();
 

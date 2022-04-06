@@ -21,11 +21,11 @@ Copyright_License {
 }
 */
 
-#ifndef XCSOAR_LANGUAGE_HPP
-#define XCSOAR_LANGUAGE_HPP
+#pragma once
 
-#if defined(HAVE_POSIX) && !defined(ANDROID) && !defined(KOBO) && !defined(__APPLE__)
-#define USE_LIBINTL
+#include "Features.hpp"
+
+#ifdef USE_LIBINTL
 
 #include <libintl.h> // IWYU pragma: export
 
@@ -40,7 +40,7 @@ Copyright_License {
 static inline void AllowLanguage() {}
 static inline void DisallowLanguage() {}
 
-#else // !HAVE_POSIX
+#else // !USE_LIBINTL
 
 #include "util/Compiler.h"
 
@@ -69,5 +69,3 @@ const TCHAR* gettext(const TCHAR* text);
 void reset_gettext_cache();
 
 #endif // !HAVE_POSIX
-
-#endif

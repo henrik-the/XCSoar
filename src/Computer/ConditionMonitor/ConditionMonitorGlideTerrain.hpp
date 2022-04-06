@@ -28,14 +28,15 @@ Copyright_License {
 
 class ConditionMonitorGlideTerrain final : public ConditionMonitor {
 public:
-  constexpr ConditionMonitorGlideTerrain():ConditionMonitor(60 * 5, 1) {}
+  constexpr ConditionMonitorGlideTerrain() noexcept
+    :ConditionMonitor(std::chrono::minutes{5}, std::chrono::seconds{1}) {}
 
 protected:
   bool CheckCondition(const NMEAInfo &basic,
                       const DerivedInfo &calculated,
-                      const ComputerSettings &settings) override;
-  void Notify() override;
-  void SaveLast() override {}
+                      const ComputerSettings &settings) noexcept override;
+  void Notify() noexcept override;
+  void SaveLast() noexcept override {}
 };
 
 #endif

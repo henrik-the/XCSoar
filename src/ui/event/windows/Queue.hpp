@@ -30,7 +30,7 @@ Copyright_License {
 
 #include <chrono>
 
-#include <windows.h>
+#include <handleapi.h>
 
 namespace UI {
 
@@ -51,13 +51,16 @@ public:
     ::CloseHandle(trigger);
   }
 
+  void Suspend() noexcept {}
+  void Resume() noexcept {}
+
   /**
    * Caching wrapper for std::chrono::steady_clock::now().  The
    * real clock is queried at most once per event loop
    * iteration, because it is assumed that the event loop runs
    * for a negligible duration.
    */
-  gcc_pure
+  [[gnu::pure]]
   const auto &SteadyNow() const noexcept {
     return steady_clock_cache.now();
   }

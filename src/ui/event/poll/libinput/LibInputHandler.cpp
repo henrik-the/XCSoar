@@ -43,7 +43,7 @@ LibInputHandler::LibInputHandler(EventQueue &_queue) noexcept
    fd(queue.GetEventLoop(), BIND_THIS_METHOD(OnSocketReady)) {}
 
 bool
-LibInputHandler::Open()
+LibInputHandler::Open() noexcept
 {
   if ((nullptr != udev_context)
       || (nullptr != li_if)
@@ -81,15 +81,15 @@ LibInputHandler::Open()
   if (_fd < 0)
     return false;
 
-  fd.Open(SocketDescriptor(_fd));
+  fd.Open(FileDescriptor{_fd});
   fd.ScheduleRead();
   return true;
 }
 
 void
-LibInputHandler::Close()
+LibInputHandler::Close() noexcept
 {
-  fd.ReleaseSocket();
+  fd.ReleaseFileDescriptor();
 
   if (nullptr != li)
     libinput_unref(li);
@@ -104,7 +104,7 @@ LibInputHandler::Close()
 }
 
 int
-LibInputHandler::OpenDevice(const char *path, int flags)
+LibInputHandler::OpenDevice(const char *path, int flags) noexcept
 {
   int fd = open(path, flags);
   if (fd < 0)
@@ -114,13 +114,25 @@ LibInputHandler::OpenDevice(const char *path, int flags)
 }
 
 void
-LibInputHandler::CloseDevice(int fd)
+LibInputHandler::CloseDevice(int fd) noexcept
 {
   close(fd);
 }
 
+void
+LibInputHandler::Suspend() noexcept
+{
+  libinput_suspend(li);
+}
+
+void
+LibInputHandler::Resume() noexcept
+{
+  libinput_resume(li);
+}
+
 inline void
-LibInputHandler::HandleEvent(struct libinput_event *li_event)
+LibInputHandler::HandleEvent(struct libinput_event *li_event) noexcept
 {
   int type = libinput_event_get_type(li_event);
   switch (type) {
@@ -172,9 +184,9 @@ LibInputHandler::HandleEvent(struct libinput_event *li_event)
       if (-1.0 == y)
         y = 0.0;
       x += libinput_event_pointer_get_dx(ptr_li_event);
-      x = Clamp<double>(x, 0, width);
+      x = Clamp<double>(x, 0, screen_size.width);
       y += libinput_event_pointer_get_dy(ptr_li_event);
-      y = Clamp<double>(y, 0, height);
+      y = Clamp<double>(y, 0, screen_size.height);
       queue.Push(Event(Event::MOUSE_MOTION,
                        PixelPoint((unsigned)x, (unsigned)y)));
     }
@@ -184,9 +196,9 @@ LibInputHandler::HandleEvent(struct libinput_event *li_event)
       libinput_event_pointer *ptr_li_event =
         libinput_event_get_pointer_event(li_event);
       x = libinput_event_pointer_get_absolute_x_transformed(ptr_li_event,
-                                                            width);
+                                                            screen_size.width);
       y = libinput_event_pointer_get_absolute_y_transformed(ptr_li_event,
-                                                            height);
+                                                            screen_size.height);
       queue.Push(Event(Event::MOUSE_MOTION,
                        PixelPoint((unsigned)x, (unsigned)y)));
     }
@@ -226,8 +238,10 @@ LibInputHandler::HandleEvent(struct libinput_event *li_event)
     {
       libinput_event_touch *touch_li_event =
         libinput_event_get_touch_event(li_event);
-      x = libinput_event_touch_get_x_transformed(touch_li_event, width);
-      y = libinput_event_touch_get_y_transformed(touch_li_event, height);
+      x = libinput_event_touch_get_x_transformed(touch_li_event,
+                                                 screen_size.width);
+      y = libinput_event_touch_get_y_transformed(touch_li_event,
+                                                 screen_size.height);
       queue.Push(Event(Event::MOUSE_DOWN,
                        PixelPoint((unsigned)x, (unsigned)y)));
     }
@@ -242,8 +256,10 @@ LibInputHandler::HandleEvent(struct libinput_event *li_event)
     {
       libinput_event_touch *touch_li_event =
         libinput_event_get_touch_event(li_event);
-      x = libinput_event_touch_get_x_transformed(touch_li_event, width);
-      y = libinput_event_touch_get_y_transformed(touch_li_event, height);
+      x = libinput_event_touch_get_x_transformed(touch_li_event,
+                                                 screen_size.width);
+      y = libinput_event_touch_get_y_transformed(touch_li_event,
+                                                 screen_size.height);
       queue.Push(Event(Event::MOUSE_MOTION,
                        PixelPoint((unsigned)x, (unsigned)y)));
     }
@@ -252,7 +268,7 @@ LibInputHandler::HandleEvent(struct libinput_event *li_event)
 }
 
 inline void
-LibInputHandler::HandlePendingEvents()
+LibInputHandler::HandlePendingEvents() noexcept
 {
   libinput_dispatch(li);
   for (libinput_event *li_event = libinput_get_event(li);

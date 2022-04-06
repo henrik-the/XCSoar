@@ -32,7 +32,6 @@ Copyright_License {
 #include "Renderer/TwoTextRowsRenderer.hpp"
 #include "Interface.hpp"
 #include "Form/ButtonPanel.hpp"
-#include "Form/List.hpp"
 #include "Widget/ButtonPanelWidget.hpp"
 #include "Widget/ListWidget.hpp"
 #include "Widget/TextWidget.hpp"
@@ -148,7 +147,6 @@ TaskEditPanel::UpdateButtons()
 {
   const unsigned index = GetList().GetCursorIndex();
 
-  edit_button->SetVisible(index < ordered_task->TaskSize());
   mutate_button->SetVisible(index > 0 &&
                             (index == ordered_task->TaskSize() - 1) &&
                             !ordered_task->HasFinish());

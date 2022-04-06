@@ -31,6 +31,7 @@ Copyright_License {
 
 #include <tchar.h>
 
+enum class ButtonState : int;
 struct ButtonLook;
 class ContainerWindow;
 class ButtonRenderer;
@@ -112,7 +113,7 @@ public:
 
   void SetSelected(bool _selected);
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned GetMinimumWidth() const;
 
   /**
@@ -126,7 +127,7 @@ protected:
    * keyboard).  The default implementation invokes the OnClick
    * callback.
    */
-  virtual bool OnClicked();
+  virtual bool OnClicked() noexcept;
 
   /* virtual methods from class Window */
   bool OnKeyCheck(unsigned key_code) const override;
@@ -142,6 +143,9 @@ protected:
 
 private:
   void SetDown(bool _down);
+
+  [[gnu::pure]]
+  ButtonState GetState() const noexcept;
 };
 
 #endif

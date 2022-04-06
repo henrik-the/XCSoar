@@ -24,14 +24,16 @@ Copyright_License {
 #ifndef XCSOAR_SCREEN_MEMORY_EXPORT_HPP
 #define XCSOAR_SCREEN_MEMORY_EXPORT_HPP
 
+#include "Concepts.hpp"
 #include "PixelTraits.hpp"
 #include "ui/canvas/PortableColor.hpp"
+#include "util/Compiler.h"
 
 #ifdef DITHER
 class Dither;
 #endif
 
-template<typename PixelTraits>
+template<AnyPixelTraits PixelTraits>
 struct ConstImageBuffer;
 
 constexpr uint32_t

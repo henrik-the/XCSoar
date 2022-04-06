@@ -24,7 +24,8 @@ Copyright_License {
 #ifndef XCSOAR_EVENT_LIBINPUT_LIBINPUT_HPP
 #define XCSOAR_EVENT_LIBINPUT_LIBINPUT_HPP
 
-#include "event/SocketEvent.hxx"
+#include "event/PipeEvent.hxx"
+#include "ui/dim/Size.hpp"
 
 #include <cassert>
 
@@ -49,10 +50,11 @@ class LibInputHandler final {
   struct libinput* li = nullptr;
   struct libinput_interface* li_if = nullptr;
 
-  SocketEvent fd;
+  PipeEvent fd;
 
   double x = -1.0, y = -1.0;
-  unsigned width = 0, height = 0;
+
+  PixelSize screen_size{0, 0};
 
   /**
    * The number of pointer input devices, touch screens ans keyboards.
@@ -62,53 +64,59 @@ class LibInputHandler final {
 public:
   explicit LibInputHandler(EventQueue &_queue) noexcept;
 
-  ~LibInputHandler() {
+  ~LibInputHandler() noexcept {
     Close();
   }
 
-  bool Open();
-  void Close();
+  bool Open() noexcept;
+  void Close() noexcept;
 
-  void SetScreenSize(unsigned _width, unsigned _height) {
-    width = _width;
-    height = _height;
+  void Suspend() noexcept;
+  void Resume() noexcept;
 
-    assert(width > 0);
-    assert(height > 0);
+  void SetScreenSize(PixelSize _screen_size) noexcept {
+    screen_size = _screen_size;
+
+    assert(screen_size.width > 0);
+    assert(screen_size.height > 0);
 
     if (-1.0 == x)
-      x = width / 2;
+      x = screen_size.width / 2;
 
     if (-1.0 == y)
-      y = height / 2;
+      y = screen_size.height / 2;
   }
 
-  unsigned GetX() const {
+  unsigned GetX() const noexcept {
     return (unsigned) x;
   }
 
-  unsigned GetY() const {
+  unsigned GetY() const noexcept {
     return (unsigned) y;
   }
 
-  bool HasPointer() const {
-    return n_pointers > 0;
+  bool HasPointer() const noexcept {
+    /* in libinput, touch screens don't have
+       LIBINPUT_DEVICE_CAP_POINTER, only LIBINPUT_DEVICE_CAP_TOUCH,
+       but for XCSoar, HasPointer() is a superset of
+       HasTouchScreen() */
+    return (n_pointers + n_touch_screens) > 0;
   }
 
-  bool HasTouchScreen() const {
+  bool HasTouchScreen() const noexcept {
     return n_touch_screens > 0;
   }
 
-  bool HasKeyboard() const {
+  bool HasKeyboard() const noexcept {
     return n_keyboards > 0;
   }
 
 private:
-  int OpenDevice(const char *path, int flags);
-  void CloseDevice(int fd);
+  int OpenDevice(const char *path, int flags) noexcept;
+  void CloseDevice(int fd) noexcept;
 
-  void HandleEvent(struct libinput_event *li_event);
-  void HandlePendingEvents();
+  void HandleEvent(struct libinput_event *li_event) noexcept;
+  void HandlePendingEvents() noexcept;
 
   void OnSocketReady(unsigned events) noexcept;
 };

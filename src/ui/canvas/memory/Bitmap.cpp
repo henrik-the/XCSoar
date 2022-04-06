@@ -28,8 +28,20 @@ Copyright_License {
 
 #include <cassert>
 
+Bitmap::Bitmap(Bitmap &&src) noexcept
+  :buffer(std::exchange(src.buffer, WritableImageBuffer<BitmapPixelTraits>::Empty()))
+{
+}
+
+Bitmap &Bitmap::operator=(Bitmap &&src) noexcept
+{
+  using std::swap;
+  swap(buffer, src.buffer);
+  return *this;
+}
+
 bool
-Bitmap::Load(UncompressedImage &&uncompressed, gcc_unused Type type)
+Bitmap::Load(UncompressedImage &&uncompressed, Type)
 {
   assert(IsScreenInitialized());
   assert(uncompressed.IsDefined());
@@ -41,7 +53,7 @@ Bitmap::Load(UncompressedImage &&uncompressed, gcc_unused Type type)
 }
 
 void
-Bitmap::Reset()
+Bitmap::Reset() noexcept
 {
   assert(!IsDefined() || IsScreenInitialized());
 

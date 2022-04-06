@@ -43,9 +43,11 @@ FilePicker(const TCHAR *caption, FileDataField &df,
 
   const TCHAR *extra_caption = nullptr;
 #ifdef HAVE_DOWNLOAD_MANAGER
-  if (df.GetFileType() != FileType::UNKNOWN &&
-      Net::DownloadManager::IsAvailable())
-    extra_caption = _("Download");
+  // with FileType::IGC don't show the 'Download'-Button!
+  if (df.GetFileType() != FileType::IGC && 
+    df.GetFileType() != FileType::UNKNOWN &&
+    Net::DownloadManager::IsAvailable())
+      extra_caption = _("Download");
 #endif
 
   int i = ComboPicker(caption, combo_list, help_text, false, extra_caption);
@@ -53,7 +55,7 @@ FilePicker(const TCHAR *caption, FileDataField &df,
 #ifdef HAVE_DOWNLOAD_MANAGER
   if (i == -2) {
     const auto path = DownloadFilePicker(df.GetFileType());
-    if (path.IsNull())
+    if (path == nullptr)
       return false;
 
     df.ForceModify(path);
@@ -77,6 +79,6 @@ FilePicker(const TCHAR *caption, const TCHAR *patterns)
   FileDataField df;
   df.ScanMultiplePatterns(patterns);
   return FilePicker(caption, df)
-    ? df.GetPathFile()
+    ? df.GetValue()
     : nullptr;
 }

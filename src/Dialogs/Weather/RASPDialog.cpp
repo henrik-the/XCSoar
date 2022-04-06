@@ -23,15 +23,15 @@ Copyright_License {
 
 #include "RASPDialog.hpp"
 #include "Dialogs/ListPicker.hpp"
-#include "Dialogs/JobDialog.hpp"
+#include "Dialogs/CoDialog.hpp"
 #include "Dialogs/Error.hpp"
 #include "Renderer/TextRowRenderer.hpp"
 #include "Widget/RowFormWidget.hpp"
 #include "Look/DialogLook.hpp"
 #include "Weather/Rasp/RaspStore.hpp"
 #include "Weather/Rasp/Providers.hpp"
+#include "ui/control/List.hpp"
 #include "Form/Edit.hpp"
-#include "Form/List.hpp"
 #include "Form/DataField/Enum.hpp"
 #include "Form/DataField/Listener.hpp"
 #include "Protection.hpp"
@@ -41,8 +41,10 @@ Copyright_License {
 #include "ActionInterface.hpp"
 #include "Language/Language.hpp"
 #include "LocalPath.hpp"
+#include "Operation/PluggableOperationEnvironment.hpp"
+#include "co/InvokeTask.hxx"
 #include "net/http/Init.hpp"
-#include "net/http/ToFile.hpp"
+#include "net/http/CoDownloadToFile.hpp"
 #include "io/FileTransaction.hpp"
 
 #include <stdio.h>
@@ -105,7 +107,7 @@ RASPSettingsPanel::FillItemControl() noexcept
   }
 
   const WeatherUIState &state = CommonInterface::GetUIState().weather;
-  df.Set(state.map);
+  df.SetValue(state.map);
 }
 
 void
@@ -128,7 +130,7 @@ RASPSettingsPanel::UpdateTimeControl() noexcept
       });
 
     if (time.IsPlausible())
-      time_df.Set(time.GetMinuteOfDay());
+      time_df.SetValue(time.GetMinuteOfDay());
     GetControl(TIME).RefreshDisplay();
   }
 }
@@ -156,6 +158,15 @@ public:
   }
 };
 
+static Co::InvokeTask
+DownloadRASP(const char *url, Path path, ProgressListener &progress)
+{
+  const auto ignored_response = co_await
+    Net::CoDownloadToFile(*Net::curl, url,
+                          nullptr, nullptr,
+                          path, nullptr, progress);
+}
+
 void
 RASPSettingsPanel::Download() noexcept
 {
@@ -175,13 +186,13 @@ RASPSettingsPanel::Download() noexcept
   auto path = LocalPath(_T(RASP_FILENAME));
 
   try {
-    DialogJobRunner runner(UIGlobals::GetMainWindow(),
-                           GetLook(),
-                           _("Download"), true);
-
     FileTransaction transaction(path);
-    Net::DownloadToFileJob job(*Net::curl, url, transaction.GetTemporaryPath());
-    if (!runner.Run(job))
+    PluggableOperationEnvironment env;
+
+    if (!ShowCoDialog(UIGlobals::GetMainWindow(), UIGlobals::GetDialogLook(),
+                      _("Download"),
+                      DownloadRASP(url, transaction.GetTemporaryPath(), env),
+                      &env))
       return;
 
     transaction.Commit();

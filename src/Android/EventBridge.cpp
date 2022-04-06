@@ -26,7 +26,6 @@ Copyright_License {
 #include "ui/event/Queue.hpp"
 #include "ui/event/Idle.hpp"
 #include "ui/event/Globals.hpp"
-#include "system/Clock.hpp"
 #include "util/Compiler.h"
 
 using namespace UI;
@@ -84,7 +83,7 @@ Java_org_xcsoar_EventBridge_onKeyDown(JNIEnv *env, jclass cls, jint key_code)
        by HasCursorKeys() */
     has_cursor_keys = true;
 
-  event_queue->Push(Event(Event::KEY_DOWN, TranslateKeyCode(key_code)));
+  event_queue->Inject(Event(Event::KEY_DOWN, TranslateKeyCode(key_code)));
   ResetUserIdle();
 }
 
@@ -96,7 +95,7 @@ Java_org_xcsoar_EventBridge_onKeyUp(JNIEnv *env, jclass cls, jint key_code)
     /* XCSoar not yet initialised */
     return;
 
-  event_queue->Push(Event(Event::KEY_UP, TranslateKeyCode(key_code)));
+  event_queue->Inject(Event(Event::KEY_UP, TranslateKeyCode(key_code)));
   ResetUserIdle();
 }
 
@@ -109,7 +108,7 @@ Java_org_xcsoar_EventBridge_onMouseDown(JNIEnv *env, jclass cls,
     /* XCSoar not yet initialised */
     return;
 
-  event_queue->Push(Event(Event::MOUSE_DOWN, PixelPoint(x, y)));
+  event_queue->Inject(Event(Event::MOUSE_DOWN, PixelPoint(x, y)));
   ResetUserIdle();
 }
 
@@ -122,7 +121,7 @@ Java_org_xcsoar_EventBridge_onMouseUp(JNIEnv *env, jclass cls,
     /* XCSoar not yet initialised */
     return;
 
-  event_queue->Push(Event(Event::MOUSE_UP, PixelPoint(x, y)));
+  event_queue->Inject(Event(Event::MOUSE_UP, PixelPoint(x, y)));
   ResetUserIdle();
 }
 
@@ -136,7 +135,7 @@ Java_org_xcsoar_EventBridge_onMouseMove(JNIEnv *env, jclass cls,
     return;
 
   event_queue->Purge(Event::MOUSE_MOTION);
-  event_queue->Push(Event(Event::MOUSE_MOTION, PixelPoint(x, y)));
+  event_queue->Inject(Event(Event::MOUSE_MOTION, PixelPoint(x, y)));
   ResetUserIdle();
 }
 
@@ -148,7 +147,7 @@ Java_org_xcsoar_EventBridge_onPointerDown(JNIEnv *env, jclass cls)
     /* XCSoar not yet initialised */
     return;
 
-  event_queue->Push(Event(Event::POINTER_DOWN));
+  event_queue->Inject(Event::POINTER_DOWN);
   ResetUserIdle();
 }
 
@@ -160,6 +159,6 @@ Java_org_xcsoar_EventBridge_onPointerUp(JNIEnv *env, jclass cls)
     /* XCSoar not yet initialised */
     return;
 
-  event_queue->Push(Event(Event::POINTER_UP));
+  event_queue->Inject(Event::POINTER_UP);
   ResetUserIdle();
 }

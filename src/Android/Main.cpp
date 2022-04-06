@@ -23,6 +23,7 @@ Copyright_License {
 
 #include "Main.hpp"
 #include "Environment.hpp"
+#include "Components.hpp"
 #include "Context.hpp"
 #include "NativeView.hpp"
 #include "Bitmap.hpp"
@@ -30,12 +31,16 @@ Copyright_License {
 #include "Vibrator.hpp"
 #include "InternalSensors.hpp"
 #include "GliderLink.hpp"
+#include "Sensor.hpp"
 #include "PortBridge.hpp"
 #include "BluetoothHelper.hpp"
-#include "NativeLeScanCallback.hpp"
+#include "UsbSerialHelper.hpp"
+#include "NativeDetectDeviceListener.hpp"
 #include "NativePortListener.hpp"
 #include "NativeInputListener.hpp"
+#include "NativeSensorListener.hpp"
 #include "TextUtil.hpp"
+#include "TextEntryDialog.hpp"
 #include "Product.hpp"
 #include "Nook.hpp"
 #include "Language/Language.hpp"
@@ -45,11 +50,11 @@ Copyright_License {
 #include "Version.hpp"
 #include "Screen/Debug.hpp"
 #include "Look/GlobalFonts.hpp"
+#include "ui/window/Init.hpp"
+#include "ui/display/Display.hpp"
 #include "ui/event/Globals.hpp"
 #include "ui/event/Queue.hpp"
-#include "ui/canvas/opengl/Init.hpp"
 #include "Dialogs/Message.hpp"
-#include "Simulator.hpp"
 #include "Profile/Profile.hpp"
 #include "MainWindow.hpp"
 #include "Startup.hpp"
@@ -58,6 +63,7 @@ Copyright_License {
 #include "java/File.hxx"
 #include "java/InputStream.hxx"
 #include "java/URL.hxx"
+#include "java/Closeable.hxx"
 #include "util/Compiler.h"
 #include "org_xcsoar_NativeView.h"
 #include "io/async/GlobalAsioThread.hpp"
@@ -67,19 +73,10 @@ Copyright_License {
 #include "util/Exception.hxx"
 
 #include "IOIOHelper.hpp"
-#include "NativeBMP085Listener.hpp"
 #include "BMP085Device.hpp"
-#include "NativeI2CbaroListener.hpp"
 #include "I2CbaroDevice.hpp"
-#include "NativeNunchuckListener.hpp"
 #include "NunchuckDevice.hpp"
-#include "NativeVoltageListener.hpp"
 #include "VoltageDevice.hpp"
-
-#ifndef NDEBUG
-#include "ui/canvas/opengl/Texture.hpp"
-#include "ui/canvas/opengl/Buffer.hpp"
-#endif
 
 #include <cassert>
 #include <stdlib.h>
@@ -95,15 +92,17 @@ NativeView *native_view;
 Vibrator *vibrator;
 bool os_haptic_feedback_enabled;
 
+BluetoothHelper *bluetooth_helper;
+UsbSerialHelper *usb_serial_helper;
 IOIOHelper *ioio_helper;
 
 gcc_visibility_default
-JNIEXPORT jboolean JNICALL
-Java_org_xcsoar_NativeView_initializeNative(JNIEnv *env, jobject obj,
-                                            jobject _context,
-                                            jint width, jint height,
-                                            jint xdpi, jint ydpi,
-                                            jint sdk_version, jstring product)
+JNIEXPORT void JNICALL
+Java_org_xcsoar_NativeView_runNative(JNIEnv *env, jobject obj,
+                                     jobject _context,
+                                     jint width, jint height,
+                                     jint xdpi, jint ydpi,
+                                     jint sdk_version, jstring product)
 try {
   Java::Init(env);
 
@@ -111,34 +110,36 @@ try {
 
   InitThreadDebug();
 
-  InitialiseAsioThread();
-  Net::Initialise(asio_thread->GetEventLoop());
+  const ScopeGlobalAsioThread global_asio_thread;
+  const Net::ScopeInit net_init(asio_thread->GetEventLoop());
 
   Java::Object::Initialise(env);
   Java::File::Initialise(env);
   Java::InputStream::Initialise(env);
+  Java::InitialiseCloseable(env);
   Java::URL::Initialise(env);
   Java::URLConnection::Initialise(env);
 
   NativeView::Initialise(env);
+  Context::Initialise(env);
   Environment::Initialise(env);
   AndroidBitmap::Initialise(env);
+  NativeSensorListener::Initialise(env);
   InternalSensors::Initialise(env);
   GliderLink::Initialise(env);
   NativePortListener::Initialise(env);
   NativeInputListener::Initialise(env);
+  AndroidSensor::Initialise(env);
   PortBridge::Initialise(env);
-  BluetoothHelper::Initialise(env);
-  NativeLeScanCallback::Initialise(env);
+  const bool have_bluetooth = BluetoothHelper::Initialise(env);
+  const bool have_usb_serial = UsbSerialHelper::Initialise(env);
+  NativeDetectDeviceListener::Initialise(env);
   const bool have_ioio = IOIOHelper::Initialise(env);
-  NativeBMP085Listener::Initialise(env);
   BMP085Device::Initialise(env);
-  NativeI2CbaroListener::Initialise(env);
   I2CbaroDevice::Initialise(env);
-  NativeNunchuckListener::Initialise(env);
   NunchuckDevice::Initialise(env);
-  NativeVoltageListener::Initialise(env);
   VoltageDevice::Initialise(env);
+  AndroidTextEntryDialog::Initialise(env);
 
   context = new Context(env, _context);
 
@@ -146,7 +147,6 @@ try {
 
   LogFormat(_T("Starting XCSoar %s"), XCSoar_ProductToken);
 
-  OpenGL::Initialise();
   TextUtil::Initialise(env);
 
   assert(native_view == nullptr);
@@ -156,11 +156,25 @@ try {
   is_nook = StringIsEqual(native_view->GetProduct(), "NOOK");
 #endif
 
-  event_queue = new EventQueue();
-
   SoundUtil::Initialise(env);
   Vibrator::Initialise(env);
   vibrator = Vibrator::Create(env, *context);
+
+  if (have_bluetooth) {
+    try {
+      bluetooth_helper = new BluetoothHelper(env, *context);
+    } catch (...) {
+      LogError(std::current_exception(), "Failed to initialise Bluetooth");
+    }
+  }
+
+  if (have_usb_serial) {
+    try {
+      usb_serial_helper = new UsbSerialHelper(env, *context);
+    } catch (...) {
+      LogError(std::current_exception(), "Failed to initialise USB serial support");
+    }
+  }
 
   if (have_ioio) {
     try {
@@ -179,41 +193,19 @@ try {
   }
 #endif
 
-  ScreenInitialized();
+  ScreenGlobalInit screen_init;
+
   AllowLanguage();
   InitLanguage();
-  return Startup();
-} catch (...) {
-  /* if an error occurs, rethrow the C++ exception as Java exception,
-     to be displayed by the Java glue code */
-  const auto msg = GetFullMessage(std::current_exception());
-  jclass Exception = env->FindClass("java/lang/Exception");
-  env->ThrowNew(Exception, msg.c_str());
-  return false;
-}
 
-gcc_visibility_default
-JNIEXPORT void JNICALL
-Java_org_xcsoar_NativeView_runNative(JNIEnv *env, jobject obj)
-{
-  InitThreadDebug();
+  if (Startup(screen_init.GetDisplay()))
+    CommonInterface::main_window->RunEventLoop();
 
-  OpenGL::Initialise();
-
-  CommonInterface::main_window->RunEventLoop();
-}
-
-gcc_visibility_default
-JNIEXPORT void JNICALL
-Java_org_xcsoar_NativeView_deinitializeNative(JNIEnv *env, jobject obj)
-{
   Shutdown();
 
   if (IsNookSimpleTouch()) {
     Nook::ExitFastMode();
   }
-
-  InitThreadDebug();
 
   if (CommonInterface::main_window != nullptr) {
     CommonInterface::main_window->Destroy();
@@ -227,45 +219,51 @@ Java_org_xcsoar_NativeView_deinitializeNative(JNIEnv *env, jobject obj)
   delete ioio_helper;
   ioio_helper = nullptr;
 
+  delete usb_serial_helper;
+  usb_serial_helper = nullptr;
+
+  delete bluetooth_helper;
+  bluetooth_helper = nullptr;
+
   delete vibrator;
   vibrator = nullptr;
 
   SoundUtil::Deinitialise(env);
-  delete event_queue;
-  event_queue = nullptr;
   delete native_view;
   native_view = nullptr;
 
   TextUtil::Deinitialise(env);
-  OpenGL::Deinitialise();
-  ScreenDeinitialized();
+
   DeinitialiseDataPath();
 
   delete context;
   context = nullptr;
 
+  AndroidTextEntryDialog::Deinitialise(env);
   BMP085Device::Deinitialise(env);
-  NativeBMP085Listener::Deinitialise(env);
   I2CbaroDevice::Deinitialise(env);
-  NativeI2CbaroListener::Deinitialise(env);
   NunchuckDevice::Deinitialise(env);
-  NativeNunchuckListener::Deinitialise(env);
   VoltageDevice::Deinitialise(env);
-  NativeVoltageListener::Deinitialise(env);
   IOIOHelper::Deinitialise(env);
-  NativeLeScanCallback::Deinitialise(env);
+  NativeDetectDeviceListener::Deinitialise(env);
+  UsbSerialHelper::Deinitialise(env);
   BluetoothHelper::Deinitialise(env);
   NativeInputListener::Deinitialise(env);
   NativePortListener::Deinitialise(env);
   InternalSensors::Deinitialise(env);
+  NativeSensorListener::Deinitialise(env);
   GliderLink::Deinitialise(env);
   AndroidBitmap::Deinitialise(env);
   Environment::Deinitialise(env);
+  Context::Deinitialise(env);
   NativeView::Deinitialise(env);
   Java::URL::Deinitialise(env);
-
-  Net::Deinitialise();
-  DeinitialiseAsioThread();
+} catch (...) {
+  /* if an error occurs, rethrow the C++ exception as Java exception,
+     to be displayed by the Java glue code */
+  const auto msg = GetFullMessage(std::current_exception());
+  jclass Exception = env->FindClass("java/lang/Exception");
+  env->ThrowNew(Exception, msg.c_str());
 }
 
 gcc_visibility_default
@@ -276,38 +274,37 @@ Java_org_xcsoar_NativeView_resizedNative(JNIEnv *env, jobject obj,
   if (event_queue == nullptr)
     return;
 
-  if (CommonInterface::main_window != nullptr)
-    CommonInterface::main_window->AnnounceResize({width, height});
+  if (auto *main_window = NativeView::GetPointer(env, obj))
+    main_window->AnnounceResize({width, height});
 
   event_queue->Purge(UI::Event::RESIZE);
 
   UI::Event event(UI::Event::RESIZE, PixelPoint(width, height));
-  event_queue->Push(event);
+  event_queue->Inject(event);
 }
 
 gcc_visibility_default
 JNIEXPORT void JNICALL
 Java_org_xcsoar_NativeView_pauseNative(JNIEnv *env, jobject obj)
 {
-  if (event_queue == nullptr || CommonInterface::main_window == nullptr)
+  auto *main_window = NativeView::GetPointer(env, obj);
+  if (event_queue == nullptr || main_window == nullptr)
     return;
     /* event subsystem is not initialized, there is nothing to pause */
 
-  CommonInterface::main_window->Pause();
-
-  assert(num_textures == 0);
-  assert(num_buffers == 0);
+  main_window->Pause();
 }
 
 gcc_visibility_default
 JNIEXPORT void JNICALL
 Java_org_xcsoar_NativeView_resumeNative(JNIEnv *env, jobject obj)
 {
-  if (event_queue == nullptr || CommonInterface::main_window == nullptr)
+  auto *main_window = NativeView::GetPointer(env, obj);
+  if (event_queue == nullptr || main_window == nullptr)
     return;
     /* event subsystem is not initialized, there is nothing to resume */
 
-  CommonInterface::main_window->Resume();
+  main_window->Resume();
 }
 
 gcc_visibility_default

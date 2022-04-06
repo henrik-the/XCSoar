@@ -28,17 +28,17 @@ Copyright_License {
 
 static constexpr unsigned CIRCLE_SEGS = 64;
 
-gcc_const
+[[gnu::const]]
 static PixelPoint
 CirclePoint(int radius, unsigned angle) noexcept
 {
-  assert(angle < ARRAY_SIZE(ISINETABLE));
+  assert(angle < ISINETABLE.size());
 
   return PixelPoint(ISINETABLE[angle] * radius / 1024,
                     -ISINETABLE[(angle + INT_QUARTER_CIRCLE) & INT_ANGLE_MASK] * radius / 1024);
 }
 
-gcc_const
+[[gnu::const]]
 static PixelPoint
 CirclePoint(PixelPoint p, int radius, unsigned angle) noexcept
 {
@@ -50,8 +50,8 @@ segment_poly(BulkPixelPoint *pt, const PixelPoint center,
              const int radius, const unsigned istart, const unsigned iend,
              unsigned &npoly, const bool forward=true) noexcept
 {
-  assert(istart < ARRAY_SIZE(ISINETABLE));
-  assert(iend < ARRAY_SIZE(ISINETABLE));
+  assert(istart < ISINETABLE.size());
+  assert(iend < ISINETABLE.size());
 
   // add start node
   pt[npoly++] = CirclePoint(center, radius, istart);
@@ -83,7 +83,7 @@ segment_poly(BulkPixelPoint *pt, const PixelPoint center,
   pt[npoly++] = CirclePoint(center, radius, iend);
 }
 
-gcc_pure
+[[gnu::pure]]
 static bool
 IsCircleVisible(const Canvas &canvas,
                 PixelPoint center, unsigned radius) noexcept

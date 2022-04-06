@@ -24,13 +24,16 @@ Copyright_License {
 #include "LogFile.hpp"
 #include "LocalPath.hpp"
 #include "Asset.hpp"
-#include "io/TextWriter.hpp"
+#include "io/FileOutputStream.hxx"
+#include "io/BufferedOutputStream.hxx"
 #include "Formatter/TimeFormatter.hpp"
 #include "time/BrokenDateTime.hpp"
 #include "system/Path.hpp"
 #include "system/FileUtil.hpp"
 #include "io/UniqueFileDescriptor.hxx"
 #include "util/Exception.hxx"
+
+#include <cwchar>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -41,13 +44,12 @@ Copyright_License {
 #include <fcntl.h>
 #endif
 
-static TextWriter
-OpenLog() noexcept
+static FileOutputStream
+OpenLog()
 {
   static bool initialised = false;
   static AllocatedPath path = nullptr;
 
-  const bool append = initialised;
   if (!initialised) {
     initialised = true;
 
@@ -70,7 +72,7 @@ OpenLog() noexcept
 #endif
   }
 
-  return TextWriter(path, append);
+  return FileOutputStream{path, FileOutputStream::Mode::APPEND_OR_CREATE};
 }
 
 static void
@@ -82,13 +84,26 @@ LogString(const char *p) noexcept
   fprintf(stderr, "%s\n", p);
 #endif
 
-  TextWriter writer(OpenLog());
-  if (!writer.IsOpen())
-    return;
+  try {
+    auto fos = OpenLog();
+    BufferedOutputStream bos{fos};
 
-  char time_buffer[32];
-  FormatISO8601(time_buffer, BrokenDateTime::NowUTC());
-  writer.FormatLine("[%s] %s", time_buffer, p);
+    bos.Write('[');
+
+    {
+      char time_buffer[32];
+      FormatISO8601(time_buffer, BrokenDateTime::NowUTC());
+      bos.Write(time_buffer);
+    }
+
+    bos.Write("] ");
+    bos.Write(p);
+    bos.NewLine();
+
+    bos.Flush();
+    fos.Commit();
+  } catch (...) {
+  }
 }
 
 void
@@ -98,7 +113,7 @@ LogFormat(const char *fmt, ...) noexcept
   va_list ap;
 
   va_start(ap, fmt);
-  vsprintf(buf, fmt, ap);
+  vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
   va_end(ap);
 
   LogString(buf);
@@ -107,25 +122,38 @@ LogFormat(const char *fmt, ...) noexcept
 #ifdef _UNICODE
 
 static void
-LogString(const TCHAR *p) noexcept
+LogString(const wchar_t *p) noexcept
 {
-  TextWriter writer(OpenLog());
-  if (!writer.IsOpen())
-    return;
+  try {
+    auto fos = OpenLog();
+    BufferedOutputStream bos{fos};
 
-  TCHAR time_buffer[32];
-  FormatISO8601(time_buffer, BrokenDateTime::NowUTC());
-  writer.FormatLine(_T("[%s] %s"), time_buffer, p);
+    bos.Write('[');
+
+    {
+      char time_buffer[32];
+      FormatISO8601(time_buffer, BrokenDateTime::NowUTC());
+      bos.Write(time_buffer);
+    }
+
+    bos.Write("] ");
+    bos.Write(p);
+    bos.NewLine();
+
+    bos.Flush();
+    fos.Commit();
+  } catch (...) {
+  }
 }
 
 void
-LogFormat(const TCHAR *Str, ...) noexcept
+LogFormat(const wchar_t *Str, ...) noexcept
 {
-  TCHAR buf[MAX_PATH];
+  wchar_t buf[MAX_PATH];
   va_list ap;
 
   va_start(ap, Str);
-  _vstprintf(buf, Str, ap);
+  std::vswprintf(buf, std::size(buf), Str, ap);
   va_end(ap);
 
   LogString(buf);

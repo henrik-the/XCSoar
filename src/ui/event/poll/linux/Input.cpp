@@ -37,40 +37,41 @@ Copyright_License {
 
 template<typename T>
 static constexpr unsigned
-BitSize()
+BitSize() noexcept
 {
   return 8 * sizeof(T);
 }
 
 template<typename T>
 static constexpr size_t
-BitsToInts(unsigned n_bits)
+BitsToInts(unsigned n_bits) noexcept
 {
   return (n_bits + BitSize<T>() - 1) / BitSize<T>();
 }
 
 template<typename T>
 static constexpr bool
-CheckBit(const T bits[], unsigned i)
+CheckBit(const T bits[], unsigned i) noexcept
 {
   return bits[i / BitSize<T>()] & (T(1) << (i % BitSize<T>()));
 }
 
 namespace UI {
 
-LinuxInputDevice::LinuxInputDevice(EventQueue &_queue, MergeMouse &_merge)
+LinuxInputDevice::LinuxInputDevice(EventQueue &_queue,
+                                   MergeMouse &_merge) noexcept
   :queue(_queue), merge(_merge),
    edit_position(0, 0), public_position(0, 0),
-   socket_event(queue.GetEventLoop(), BIND_THIS_METHOD(OnSocketReady))
+   event(queue.GetEventLoop(), BIND_THIS_METHOD(OnSocketReady))
 {
 }
 
 /**
  * Check if the EVDEV supports EV_ABS or EV_REL..
  */
-gcc_pure
+[[gnu::pure]]
 static bool
-IsPointerDevice(int fd)
+IsPointerDevice(int fd) noexcept
 {
   assert(fd >= 0);
 
@@ -82,19 +83,19 @@ IsPointerDevice(int fd)
 }
 
 bool
-LinuxInputDevice::Open(const char *path)
+LinuxInputDevice::Open(const char *path) noexcept
 {
   FileDescriptor _fd;
   if (!_fd.OpenReadOnly(path))
     return false;
 
   _fd.SetNonBlocking();
-  socket_event.Open(SocketDescriptor::FromFileDescriptor(_fd));
-  socket_event.ScheduleRead();
+  event.Open(_fd);
+  event.ScheduleRead();
 
   min_x = max_x = min_y = max_y = 0;
 
-  is_pointer = IsPointerDevice(socket_event.GetSocket().Get());
+  is_pointer = IsPointerDevice(event.GetFileDescriptor().Get());
   if (is_pointer) {
     merge.AddPointer();
 
@@ -103,7 +104,7 @@ LinuxInputDevice::Open(const char *path)
       /* no need to do that on the Kobo, because we know its touch
          screen is well-calibrated */
 
-      const int fd = socket_event.GetSocket().Get();
+      const int fd = event.GetFileDescriptor().Get();
 
       input_absinfo abs;
       if (ioctl(fd, EVIOCGABS(ABS_X), &abs) == 0) {
@@ -125,7 +126,7 @@ LinuxInputDevice::Open(const char *path)
 }
 
 void
-LinuxInputDevice::Close()
+LinuxInputDevice::Close() noexcept
 {
   if (!IsOpen())
     return;
@@ -133,13 +134,13 @@ LinuxInputDevice::Close()
   if (is_pointer)
     merge.RemovePointer();
 
-  socket_event.Close();
+  event.Close();
 }
 
 inline void
-LinuxInputDevice::Read()
+LinuxInputDevice::Read() noexcept
 {
-  FileDescriptor fd = socket_event.GetSocket().ToFileDescriptor();
+  FileDescriptor fd = event.GetFileDescriptor();
 
   struct input_event buffer[64];
   const auto nbytes = fd.Read(buffer, sizeof(buffer));

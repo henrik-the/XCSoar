@@ -62,24 +62,21 @@ class TopCanvas;
 #define Window X11Window
 #define Display X11Display
 #include <X11/X.h>
-#ifdef USE_GLX
-#include <GL/glx.h>
-#undef NoValue
-#endif
 #undef Font
 #undef Window
 #undef Display
 #undef Expose
 #undef KeyPress
-struct _XDisplay;
+#undef Below
 #endif
 
 #ifdef USE_WAYLAND
-struct wl_display;
 struct wl_egl_window;
 #endif
 
 namespace UI {
+
+class Display;
 
 class TopWindowStyle : public WindowStyle {
 #if defined(ENABLE_SDL) || defined(USE_X11)
@@ -149,14 +146,11 @@ public:
  * A top-level full-screen window.
  */
 class TopWindow : public ContainerWindow {
+  UI::Display &display;
+
 #ifdef USE_X11
-  _XDisplay *x_display;
   X11Window x_window;
-#ifdef USE_GLX
-  GLXFBConfig *fb_cfg;
-#endif
 #elif defined(USE_WAYLAND)
-  struct wl_display *native_display;
   struct wl_egl_window *native_window;
 #elif defined(ENABLE_SDL)
   SDL_Window *window;
@@ -186,14 +180,20 @@ class TopWindow : public ContainerWindow {
    * Is the application currently paused?  While this flag is set, no
    * OpenGL operations are allowed, because the OpenGL surface does
    * not exist.
+   *
+   * This is initially true to trigger a call to
+   * TopCanvas::AcquireSurface().
    */
-  bool paused = false;
+  bool paused = true;
 
   /**
    * Has the application been resumed?  When this flag is set,
    * TopWindow::Expose() attempts to reinitialize the OpenGL surface.
+   *
+   * This is initially true to trigger a call to
+   * TopCanvas::AcquireSurface().
    */
-  bool resumed = false;
+  bool resumed = true;
 
   /**
    * Was the application view resized while paused?  If true, then
@@ -220,9 +220,20 @@ class TopWindow : public ContainerWindow {
 #endif
 
 public:
+#ifdef ANDROID
+  explicit TopWindow(UI::Display &_display) noexcept;
+#else
+  explicit TopWindow(UI::Display &_display) noexcept
+    :display(_display) {}
+#endif
+
 #ifndef USE_WINUSER
   ~TopWindow() noexcept override;
 #endif
+
+  auto &GetDisplay() const noexcept {
+    return display;
+  }
 
   /**
    * Throws on error.
@@ -257,7 +268,7 @@ public:
 
 #if !defined(USE_WINUSER) && !defined(ENABLE_SDL)
 #if defined(ANDROID) || defined(USE_FB) || defined(USE_EGL) || defined(USE_GLX) || defined(USE_VFB)
-  void SetCaption(gcc_unused const TCHAR *caption) noexcept {}
+  void SetCaption(const TCHAR *) noexcept {}
 #else
   void SetCaption(const TCHAR *caption) noexcept;
 #endif
@@ -270,7 +281,7 @@ public:
   void CancelMode() noexcept;
 
 #if defined(USE_WINUSER)
-  gcc_pure
+  [[gnu::pure]]
   const PixelRect GetClientRect() const noexcept {
     if (::IsIconic(hWnd)) {
       /* for a minimized window, GetClientRect() returns the
@@ -287,7 +298,7 @@ public:
     return ContainerWindow::GetClientRect();
   }
 
-  gcc_pure
+  [[gnu::pure]]
   const PixelSize GetSize() const noexcept {
     /* this is implemented again because Window::get_size() would call
        Window::GetClientRect() (method is not virtual) */
@@ -331,11 +342,21 @@ public:
 #endif
 
 #if defined(USE_X11) || defined(USE_WAYLAND)
-  gcc_pure
+  [[gnu::pure]]
   bool IsVisible() const noexcept;
 #endif
 
 #ifdef ANDROID
+  /**
+   * Set the "running" flag, which is used by Pause().
+   */
+  void BeginRunning() noexcept;
+
+  /**
+   * Clear the "running" flag, which is used by Pause().
+   */
+  void EndRunning() noexcept;
+
   /**
    * The Android OpenGL surface has been resized; notify the TopWindow
    * that this has happened.  The caller should also submit the RESIZE
@@ -380,6 +401,10 @@ public:
   }
 #endif
 
+#ifdef DRAW_MOUSE_CURSOR
+private:
+  void DrawMouseCursor(Canvas &canvas) noexcept;
+#endif
 
 protected:
   PixelPoint PointToReal(PixelPoint p) const noexcept {
@@ -398,10 +423,6 @@ protected:
 
 #ifdef KOBO
   void OnDestroy() override;
-#endif
-
-#ifdef DRAW_MOUSE_CURSOR
-  void OnPaint(Canvas &canvas) override;
 #endif
 
 #ifdef USE_WINUSER

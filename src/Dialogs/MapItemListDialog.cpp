@@ -160,9 +160,7 @@ public:
 void
 MapItemListWidget::CreateButtons(WidgetDialog &dialog)
 {
-  settings_button = dialog.AddButton(_("Settings"), [](){
-    ShowMapItemListSettingsDialog();
-  });
+  details_button = dialog.AddButton(_("Details"), mrOK);
 
   goto_button = dialog.AddButton(_("Goto"), [this](){
     OnGotoClicked();
@@ -172,7 +170,10 @@ MapItemListWidget::CreateButtons(WidgetDialog &dialog)
     OnAckClicked();
   });
 
-  details_button = dialog.AddButton(_("Details"), mrOK);
+  settings_button = dialog.AddButton(_("Settings"), [](){
+    ShowMapItemListSettingsDialog();
+  });
+
   cancel_button = dialog.AddButton(_("Close"), mrCancel);
 }
 
@@ -239,7 +240,7 @@ MapItemListWidget::OnAckClicked()
 {
   const AirspaceMapItem &as_item = *(const AirspaceMapItem *)
     list[GetCursorIndex()];
-  GetAirspaceWarnings()->AcknowledgeDay(*as_item.airspace);
+  GetAirspaceWarnings()->AcknowledgeDay(as_item.airspace);
   UpdateButtons();
 }
 
@@ -279,7 +280,7 @@ ShowMapItemDialog(const MapItem &item,
     break;
 
   case MapItem::AIRSPACE:
-    dlgAirspaceDetails(*((const AirspaceMapItem &)item).airspace,
+    dlgAirspaceDetails(((const AirspaceMapItem &)item).airspace,
                        airspace_warnings);
     break;
   case MapItem::WAYPOINT:

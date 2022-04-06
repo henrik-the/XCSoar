@@ -37,6 +37,8 @@ Copyright_License {
 #include "io/FileLineReader.hpp"
 #include "Resources.hpp"
 #include "Model.hpp"
+#include "Hardware/Battery.hpp"
+#include "Hardware/PowerInfo.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -84,10 +86,14 @@ DrawBanner(Canvas &canvas, PixelRect &rc)
   canvas.DrawText({x, rc.top + int(banner_height - normal_font.GetHeight()) / 2},
                   website);
 
-  const TCHAR *const comment = _T("powered off");
-  canvas.DrawText({rc.right - (int)canvas.CalcTextWidth(comment) - padding, rc.top + padding},
-                  comment);
+  TCHAR comment[30] = _T("powered off");   
+  const auto power_info = Power::GetInfo();
+  if (power_info.battery.remaining_percent) {
+    snprintf ( comment+strlen(comment), 30-strlen(comment), _T(" - battery %d%%"), *power_info.battery.remaining_percent);  
+  }
 
+  canvas.DrawText({rc.right - (int)canvas.CalcTextWidth(comment) - padding, rc.top + padding},
+                          comment);
   rc.top += banner_height + 8;
 }
 
@@ -124,7 +130,7 @@ int main(int argc, char **argv)
   FreeType::mono = false;
 
   ScreenGlobalInit screen_init;
-  Layout::Initialize({600, 800});
+  Layout::Initialise(screen_init.GetDisplay(), {600, 800});
 
   Font::Initialise();
   Display::Rotate(DisplayOrientation::PORTRAIT);
@@ -132,8 +138,7 @@ int main(int argc, char **argv)
   InitialiseFonts();
 
   {
-    TopCanvas screen;
-    screen.Create(PixelSize(100, 100), true, false);
+    TopCanvas screen{screen_init.GetDisplay()};
 
     Canvas canvas = screen.Lock();
     if (canvas.IsDefined()) {

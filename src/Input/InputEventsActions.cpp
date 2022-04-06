@@ -84,6 +84,12 @@ doc/html/advanced/input/ALL		http://xcsoar.sourceforge.net/advanced/input/
 #include "MapWindow/GlueMapWindow.hpp"
 #include "Simulator.hpp"
 #include "Formatter/TimeFormatter.hpp"
+#include "Operation/MessageOperationEnvironment.hpp"
+#include "Device/MultipleDevices.hpp"
+
+#include "Form/DataField/File.hpp"
+#include "Dialogs/FilePicker.hpp"
+#include "contest/weglide/UploadIGCFile.hpp"
 
 #include <cassert>
 #include <tchar.h>
@@ -91,6 +97,11 @@ doc/html/advanced/input/ALL		http://xcsoar.sourceforge.net/advanced/input/
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
+#endif
+
+#ifdef _WIN32
+#include <processthreadsapi.h> // for CreateProcess()
+#include <winbase.h> // for INFINITE
 #endif
 
 /**
@@ -191,6 +202,42 @@ InputEvents::eventMarkLocation(const TCHAR *misc)
   }
 
   trigger_redraw();
+}
+
+void
+InputEvents::eventPilotEvent(const TCHAR *misc)
+{
+  // Configure start window
+  const OrderedTaskSettings &ots =
+  	protected_task_manager->GetOrderedTaskSettings();
+  const StartConstraints &start = ots.start_constraints;
+
+  const BrokenTime bt = BrokenDateTime::NowUTC();
+  RoughTime new_start = RoughTime(bt.hour, bt.minute);
+  RoughTime new_end = RoughTime::Invalid();
+
+  if (start.pev_start_wait_time.count() > 0) {
+    auto t = std::chrono::duration_cast<std::chrono::minutes>(start.pev_start_wait_time);
+    // Set start time to the next full minute after wait time.
+    // This way we make sure wait time is passed before xcsoar opens the start.
+    if (bt.second > 0)
+      t += std::chrono::minutes{1};
+    new_start = new_start + RoughTimeDelta::FromDuration(t);
+  }
+
+  if (start.pev_start_window.count() > 0) {
+    new_end = new_start + RoughTimeDelta::FromDuration(start.pev_start_window);
+  }
+  const RoughTimeSpan ts = RoughTimeSpan(new_start, new_end);
+
+  protected_task_manager->SetStartTimeSpan(ts);
+
+  // Log pilot event
+  logger->LogPilotEvent(CommonInterface::Basic());
+
+  // Let devices know the pilot event was pressed
+  MessageOperationEnvironment env;
+  devices->PutPilotEvent(env);
 }
 
 void
@@ -433,8 +480,8 @@ InputEvents::eventLogger(const TCHAR *misc)
     logger->GUIToggleLogger(basic, settings_computer,
                             protected_task_manager, true);
   else if (StringIsEqual(misc, _T("nmea"))) {
-    NMEALogger::enabled = !NMEALogger::enabled;
-    if (NMEALogger::enabled) {
+    nmea_logger->ToggleEnabled();
+    if (nmea_logger->IsEnabled()) {
       Message::AddMessage(_("NMEA log on"));
     } else {
       Message::AddMessage(_("NMEA log off"));
@@ -570,7 +617,7 @@ InputEvents::eventRun(const TCHAR *misc)
   ::CloseHandle(pi.hThread);
 
   #elif !defined(__APPLE__) || !TARGET_OS_IPHONE
-  system(misc);
+  if (system(misc)) {;} // Ignore return value
   #endif
 }
 
@@ -694,4 +741,18 @@ void
 InputEvents::eventExchangeFrequencies(const TCHAR *misc)
 {
   XCSoarInterface::ExchangeRadioFrequencies(true);
+}
+
+void
+InputEvents::eventUploadIGCFile(const TCHAR *misc) {
+  FileDataField df;
+  df.ScanMultiplePatterns(_T("*.igc"));
+  df.SetFileType(FileType::IGC);
+  if (FilePicker(_T("IGC-FilePicker"), df)) {
+    auto path = df.GetValue();
+    if (!path.IsEmpty())
+      if (WeGlide::UploadIGCFile(path)) {
+        // success!
+      }
+  }
 }

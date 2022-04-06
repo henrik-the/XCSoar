@@ -25,12 +25,14 @@ Copyright_License {
 #include "Computer/GlideComputer.hpp"
 #include "Engine/Airspace/Airspaces.hpp"
 #include "Waypoint/Waypoints.hpp"
+#include "net/http/Features.hpp"
 #include "thread/Debug.hpp"
 #include "thread/Handle.hpp"
 
 FileCache *file_cache;
 TopographyStore *topography;
 RasterTerrain *terrain;
+AsyncTerrainOverviewLoader *terrain_loader;
 
 #ifndef ENABLE_OPENGL
 DrawThread *draw_thread;
@@ -43,11 +45,16 @@ MergeThread *merge_thread;
 CalculationThread *calculation_thread;
 
 Logger *logger;
+NMEALogger *nmea_logger;
 GlueFlightLogger *flight_logger;
 Replay *replay;
 
 #ifdef HAVE_TRACKING
 TrackingGlue *tracking;
+#endif
+
+#ifdef HAVE_HTTP
+TIM::Glue *tim_glue;
 #endif
 
 Waypoints way_points;

@@ -21,8 +21,7 @@ Copyright_License {
 }
 */
 
-#ifndef XCSOAR_SCREEN_GDI_CANVAS_HPP
-#define XCSOAR_SCREEN_GDI_CANVAS_HPP
+#pragma once
 
 #include "ui/canvas/Brush.hpp"
 #include "ui/canvas/Color.hpp"
@@ -30,12 +29,14 @@ Copyright_License {
 #include "ui/canvas/Pen.hpp"
 #include "ui/dim/Rect.hpp"
 #include "ui/dim/BulkPoint.hpp"
-#include "util/Compiler.h"
 #include "util/StringView.hxx"
 
 #include <cassert>
-#include <windows.h>
+
+#include <handleapi.h> // for INVALID_HANDLE_VALUE
 #include <tchar.h>
+#include <wingdi.h>
+#include <winuser.h>
 
 class Angle;
 
@@ -116,7 +117,7 @@ public:
     return size.height;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   PixelRect GetRect() const {
     return PixelRect{PixelPoint{0, 0}, size};
   }
@@ -125,7 +126,7 @@ public:
     size = new_size;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   const HWColor map(const Color color) const
   {
     return HWColor(color);
@@ -192,7 +193,7 @@ public:
     ::SetTextColor(dc, c);
   }
 
-  gcc_pure
+  [[gnu::pure]]
   Color GetTextColor() const {
     assert(IsDefined());
 
@@ -205,7 +206,7 @@ public:
     ::SetBkColor(dc, c);
   }
 
-  gcc_pure
+  [[gnu::pure]]
   Color GetBackgroundColor() const {
     return Color(::GetBkColor(dc));
   }
@@ -376,15 +377,15 @@ public:
     ::DrawFocusRect(dc, &rc);
   }
 
-  gcc_pure
+  [[gnu::pure]]
   const PixelSize CalcTextSize(BasicStringView<TCHAR> text) const noexcept;
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned CalcTextWidth(BasicStringView<TCHAR> text) const {
     return CalcTextSize(text).width;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned GetFontHeight() const;
 
   void DrawText(PixelPoint p, BasicStringView<TCHAR> text) noexcept;
@@ -579,11 +580,4 @@ public:
   void ScaleCopy(PixelPoint dest_position,
                  const Bitmap &src,
                  PixelPoint src_position, PixelSize src_size) noexcept;
-
-  gcc_pure
-  HWColor GetPixel(PixelPoint p) const noexcept {
-    return HWColor(::GetPixel(dc, p.x, p.y));
-  }
 };
-
-#endif

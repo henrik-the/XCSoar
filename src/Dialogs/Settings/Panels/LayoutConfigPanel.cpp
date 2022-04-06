@@ -22,6 +22,7 @@ Copyright_License {
 */
 
 #include "LayoutConfigPanel.hpp"
+#include "ui/canvas/Features.hpp" // for DRAW_MOUSE_CURSOR
 #include "Profile/ProfileKeys.hpp"
 #include "Profile/Profile.hpp"
 #include "Form/DataField/Enum.hpp"
@@ -37,12 +38,20 @@ Copyright_License {
 #include "Menu/ShowMenuButton.hpp"
 #include "ActionInterface.hpp"
 
+#ifdef ANDROID
+#include "Android/Main.hpp"
+#include "Android/NativeView.hpp"
+#endif
+
 #ifdef USE_POLL_EVENT
 #include "ui/event/Globals.hpp"
 #include "ui/event/Queue.hpp"
 #endif
 
 enum ControlIndex {
+#ifdef ANDROID
+  FullScreen,
+#endif
   MapOrientation,
   AppInfoBoxGeom,
   AppFlarmLocation,
@@ -81,6 +90,10 @@ static constexpr StaticEnumChoice info_box_geometry_list[] = {
     N_("10 Split") },
   { (unsigned)InfoBoxSettings::Geometry::SPLIT_3X4,
     N_("12 Split in 3 rows") },
+  { (unsigned)InfoBoxSettings::Geometry::SPLIT_3X5,
+    N_("15 Split in 3 rows") },
+  { (unsigned)InfoBoxSettings::Geometry::SPLIT_3X6,
+    N_("18 Split in 3 rows") },
   { (unsigned)InfoBoxSettings::Geometry::BOTTOM_RIGHT_8,
     N_("8 Bottom or Right") },
   { (unsigned)InfoBoxSettings::Geometry::BOTTOM_8_VARIO,
@@ -108,7 +121,7 @@ static constexpr StaticEnumChoice info_box_geometry_list[] = {
   { (unsigned)InfoBoxSettings::Geometry::RIGHT_16,
     N_("16 Right (Landscape)") },
   { (unsigned)InfoBoxSettings::Geometry::RIGHT_24,
-    N_("24 Right (Landscape)") },
+    N_("24 Bottom or Right") },
   { (unsigned)InfoBoxSettings::Geometry::TOP_LEFT_4,
     N_("4 Top or Left") },
   { (unsigned)InfoBoxSettings::Geometry::BOTTOM_RIGHT_4,
@@ -180,6 +193,11 @@ LayoutConfigPanel::Prepare(ContainerWindow &parent,
 
   RowFormWidget::Prepare(parent, rc);
 
+#ifdef ANDROID
+  AddBoolean(_("Full screen"), _("Run XCSoar in full screen mode"),
+             ui_settings.display.full_screen);
+#endif
+
   if (Display::RotateSupported())
     AddEnum(_("Display orientation"), _("Rotate the display on devices that support it."),
             display_orientation_list, (unsigned)ui_settings.display.orientation);
@@ -240,6 +258,12 @@ LayoutConfigPanel::Save(bool &_changed) noexcept
   bool changed = false;
 
   UISettings &ui_settings = CommonInterface::SetUISettings();
+
+#ifdef ANDROID
+  changed |= SaveValue(FullScreen, ProfileKeys::FullScreen,
+                       ui_settings.display.full_screen);
+  native_view->SetFullScreen(Java::GetEnv(), ui_settings.display.full_screen);
+#endif
 
   bool orientation_changed = false;
 

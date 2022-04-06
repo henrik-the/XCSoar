@@ -52,6 +52,13 @@ EventLoop::EventLoop(
 
 EventLoop::~EventLoop() noexcept
 {
+#if defined(HAVE_URING) && !defined(NDEBUG)
+	/* if Run() was never called (maybe because startup failed and
+	   an exception is pending), we need to destruct the
+	   Uring::Manager here or else the assertions below fail */
+	uring.reset();
+#endif
+
 	assert(defer.empty());
 	assert(idle.empty());
 #ifdef HAVE_THREADED_EVENT_LOOP
@@ -175,6 +182,10 @@ EventLoop::HandleTimers() noexcept
 void
 EventLoop::AddDefer(DeferEvent &d) noexcept
 {
+#ifdef HAVE_THREADED_EVENT_LOOP
+	assert(!IsAlive() || IsInside());
+#endif
+
 	defer.push_back(d);
 	again = true;
 }
@@ -298,6 +309,8 @@ EventLoop::Run() noexcept
 			break;
 
 		RunDeferred();
+		if (quit)
+			break;
 
 		if (RunOneIdle())
 			/* check for other new events after each
@@ -310,7 +323,7 @@ EventLoop::Run() noexcept
 		/* try to handle DeferEvents without WakeFD
 		   overhead */
 		{
-			const std::lock_guard<Mutex> lock(mutex);
+			const std::scoped_lock<Mutex> lock(mutex);
 			HandleInject();
 #endif
 
@@ -327,16 +340,19 @@ EventLoop::Run() noexcept
 
 		/* wait for new event */
 
-		Wait(timeout);
+		Wait(finish ? Event::Duration{} : timeout);
 
 		steady_clock_cache.flush();
 
 #ifdef HAVE_THREADED_EVENT_LOOP
 		{
-			const std::lock_guard<Mutex> lock(mutex);
+			const std::scoped_lock<Mutex> lock(mutex);
 			busy = true;
 		}
 #endif
+
+		if (finish && ready_sockets.empty())
+			break;
 
 		/* invoke sockets */
 		while (!ready_sockets.empty() && !quit) {
@@ -365,7 +381,7 @@ EventLoop::AddInject(InjectEvent &d) noexcept
 	bool must_wake;
 
 	{
-		const std::lock_guard<Mutex> lock(mutex);
+		const std::scoped_lock<Mutex> lock(mutex);
 		if (d.IsPending())
 			return;
 
@@ -384,7 +400,7 @@ EventLoop::AddInject(InjectEvent &d) noexcept
 void
 EventLoop::RemoveInject(InjectEvent &d) noexcept
 {
-	const std::lock_guard<Mutex> protect(mutex);
+	const std::scoped_lock<Mutex> protect(mutex);
 
 	if (d.IsPending())
 		inject.erase(inject.iterator_to(d));
@@ -411,7 +427,7 @@ EventLoop::OnSocketReady([[maybe_unused]] unsigned flags) noexcept
 
 	wake_fd.Read();
 
-	const std::lock_guard<Mutex> lock(mutex);
+	const std::scoped_lock<Mutex> lock(mutex);
 	HandleInject();
 }
 

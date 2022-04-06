@@ -43,7 +43,7 @@ BufferCanvas::Create(PixelSize new_size)
   assert(!active);
 
   Destroy();
-  texture = new GLTexture(new_size, true);
+  texture = new GLTexture(INTERNAL_FORMAT, new_size, FORMAT, TYPE, true);
 
   if (OpenGL::render_buffer_stencil) {
     frame_buffer = new GLFrameBuffer();
@@ -56,7 +56,6 @@ BufferCanvas::Create(PixelSize new_size)
   }
 
   Canvas::Create(new_size);
-  AddSurfaceListener(*this);
 }
 
 void
@@ -65,8 +64,6 @@ BufferCanvas::Destroy()
   assert(!active);
 
   if (IsDefined()) {
-    RemoveSurfaceListener(*this);
-
     delete stencil_buffer;
     stencil_buffer = nullptr;
 
@@ -86,7 +83,7 @@ BufferCanvas::Resize(PixelSize new_size)
   if (new_size == GetSize())
     return;
 
-  texture->ResizeDiscard(new_size);
+  texture->ResizeDiscard(INTERNAL_FORMAT, new_size, FORMAT, TYPE);
 
   if (stencil_buffer != nullptr) {
     /* the stencil buffer must be detached before we resize it */
@@ -127,12 +124,7 @@ BufferCanvas::Begin(Canvas &other)
 
     /* save the old viewport */
 
-#ifdef HAVE_GLES
-    /* there's no glPushAttrib() on GL/ES; emulate it */
     glGetIntegerv(GL_VIEWPORT, old_viewport);
-#else
-    glPushAttrib(GL_VIEWPORT_BIT);
-#endif
 
     old_projection_matrix = OpenGL::projection_matrix;
     OpenGL::projection_matrix = glm::mat4(1);
@@ -177,13 +169,8 @@ BufferCanvas::Commit(Canvas &other)
 
     assert(OpenGL::translate == PixelPoint(0, 0));
 
-#ifdef HAVE_GLES
-    /* there's no glPopAttrib() on GL/ES; emulate it */
     glViewport(old_viewport[0], old_viewport[1],
                old_viewport[2], old_viewport[3]);
-#else
-    glPopAttrib();
-#endif
 
     OpenGL::projection_matrix = old_projection_matrix;
     OpenGL::UpdateShaderProjectionMatrix();
@@ -221,18 +208,4 @@ BufferCanvas::CopyTo(Canvas &other)
 
   texture->Bind();
   texture->Draw(other.GetRect(), GetRect());
-}
-
-void
-BufferCanvas::SurfaceCreated()
-{
-}
-
-void
-BufferCanvas::SurfaceDestroyed()
-{
-  /* discard the buffer when the Android app is suspended; it needs a
-     full redraw to restore it after resuming */
-
-  Destroy();
 }

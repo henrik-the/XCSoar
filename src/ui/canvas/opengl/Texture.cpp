@@ -23,12 +23,10 @@ Copyright_License {
 
 #include "Texture.hpp"
 #include "Globals.hpp"
-#include "ui/opengl/Features.hpp"
 #include "VertexPointer.hpp"
 #include "ui/dim/BulkPoint.hpp"
 #include "Asset.hpp"
 #include "Scope.hpp"
-#include "util/Compiler.h"
 
 #include <glm/gtc/type_ptr.hpp>
 
@@ -37,10 +35,6 @@ Copyright_License {
 #endif
 
 #include <cassert>
-
-#ifndef NDEBUG
-unsigned num_textures;
-#endif
 
 static constexpr unsigned
 NextPowerOfTwo(unsigned i) noexcept
@@ -51,14 +45,14 @@ NextPowerOfTwo(unsigned i) noexcept
   return p;
 }
 
-gcc_const
+[[gnu::const]]
 static inline unsigned
 ValidateTextureSize(unsigned i) noexcept
 {
   return OpenGL::texture_non_power_of_two ? i : NextPowerOfTwo(i);
 }
 
-gcc_const
+[[gnu::const]]
 static inline PixelSize
 ValidateTextureSize(PixelSize size) noexcept
 {
@@ -89,14 +83,16 @@ LoadTextureAutoAlign(GLint internal_format, PixelSize size,
   }
 }
 
-GLTexture::GLTexture(PixelSize _size, bool _flipped) noexcept
+GLTexture::GLTexture(GLint internal_format, PixelSize _size,
+                     GLenum format, GLenum type,
+                     bool _flipped) noexcept
   :size(_size), allocated_size(ValidateTextureSize(_size)), flipped(_flipped)
 {
   Initialise();
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+  glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
                allocated_size.width, allocated_size.height,
-               0, GL_RGB, GetType(), nullptr);
+               0, format, type, nullptr);
 }
 
 GLTexture::GLTexture(GLint internal_format, PixelSize _size,
@@ -109,7 +105,8 @@ GLTexture::GLTexture(GLint internal_format, PixelSize _size,
 }
 
 void
-GLTexture::ResizeDiscard(PixelSize new_size) noexcept
+GLTexture::ResizeDiscard(GLint internal_format, PixelSize new_size,
+                         GLenum format, GLenum type) noexcept
 {
   const PixelSize validated_size = ValidateTextureSize(new_size);
   const PixelSize old_size = GetAllocatedSize();
@@ -125,17 +122,12 @@ GLTexture::ResizeDiscard(PixelSize new_size) noexcept
 
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
                validated_size.width, validated_size.height,
-               0, GL_RGB, GetType(), nullptr);
-
+               0, format, type, nullptr);
 }
 
 void
 GLTexture::Initialise() noexcept
 {
-#ifndef NDEBUG
-  ++num_textures;
-#endif
-
   glGenTextures(1, &id);
   Bind();
   Configure();

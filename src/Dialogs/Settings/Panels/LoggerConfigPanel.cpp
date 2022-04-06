@@ -30,11 +30,16 @@ Copyright_License {
 #include "Form/DataField/Enum.hpp"
 #include "Logger/NMEALogger.hpp"
 #include "UtilsSettings.hpp"
+#include "Components.hpp"
+#include "Units/Group.hpp"
+
+using namespace std::chrono;
 
 enum ControlIndex {
   PilotName,
   CoPilotName,
   PilotWeGlideId,
+  CrewWeightTemplate,
   LoggerTimeStepCruise,
   LoggerTimeStepCircling,
   DisableAutoLogger,
@@ -74,14 +79,22 @@ LoggerConfigPanel::Prepare(ContainerWindow &parent,
 
   AddText(_("WeGlide Pilot ID"), nullptr, logger.pilot_weglide_id);
 
-  AddTime(_("Time step cruise"),
-          _("This is the time interval between logged points when not circling."),
-          1, 30, 1, logger.time_step_cruise);
+  AddFloat(_("Crew weight default"),
+            _("Default for all weight loaded to the glider beyond the empty weight and besides "
+                "the water ballast."),
+            _T("%.0f %s"), _T("%.0f"),
+            0, 300, 5, false, UnitGroup::MASS,
+            logger.crew_mass_template);
+
+  AddDuration(_("Time step cruise"),
+              _("This is the time interval between logged points when not circling."),
+              seconds{1}, seconds{30}, seconds{1}, logger.time_step_cruise);
+
   SetExpertRow(LoggerTimeStepCruise);
 
-  AddTime(_("Time step circling"),
-          _("This is the time interval between logged points when circling."),
-          1, 30, 1, logger.time_step_circling);
+  AddDuration(_("Time step circling"),
+              _("This is the time interval between logged points when circling."),
+              seconds{1}, seconds{30}, seconds{1}, logger.time_step_circling);
   SetExpertRow(LoggerTimeStepCircling);
 
   AddEnum(_("Auto. logger"),
@@ -119,6 +132,9 @@ LoggerConfigPanel::Save(bool &changed) noexcept
   changed |= SaveValue(PilotWeGlideId, ProfileKeys::PilotWeGlideId,
                        logger.pilot_weglide_id);
 
+  changed |= SaveValue(CrewWeightTemplate, UnitGroup::MASS, ProfileKeys::CrewWeightTemplate,
+                       logger.crew_mass_template);
+
   changed |= SaveValue(LoggerTimeStepCruise, ProfileKeys::LoggerTimeStepCruise,
                        logger.time_step_cruise);
 
@@ -132,8 +148,8 @@ LoggerConfigPanel::Save(bool &changed) noexcept
   changed |= SaveValue(EnableNMEALogger, ProfileKeys::EnableNMEALogger,
                        logger.enable_nmea_logger);
 
-  if (logger.enable_nmea_logger)
-    NMEALogger::enabled = true;
+  if (logger.enable_nmea_logger && nmea_logger != nullptr)
+    nmea_logger->Enable();
 
   if (SaveValue(EnableFlightLogger, ProfileKeys::EnableFlightLogger,
                 logger.enable_flight_logger)) {

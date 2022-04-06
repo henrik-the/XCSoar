@@ -155,6 +155,7 @@ void eventLogger(const TCHAR *misc);
 void eventMacCready(const TCHAR *misc);
 void eventMainMenu(const TCHAR *misc);
 void eventMarkLocation(const TCHAR *misc);
+void eventPilotEvent(const TCHAR *misc);
 void eventMode(const TCHAR *misc);
 void eventNearestAirspaceDetails(const TCHAR *misc);
 void eventNearestWaypointDetails(const TCHAR *misc);
@@ -209,6 +210,7 @@ void eventRunLuaFile(const TCHAR *misc);
 void eventResetTask(const TCHAR *misc);
 void eventLockScreen(const TCHAR *misc);
 void eventExchangeFrequencies(const TCHAR *misc);
+void eventUploadIGCFile(const TCHAR *misc);
 // -------
 
 } // namespace InputEvents

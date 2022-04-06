@@ -127,7 +127,7 @@ public:
   }
 
   void SetWaypoints(const Waypoints *way_points) {
-    way_point_renderer.set_way_points(way_points);
+    way_point_renderer.SetWaypoints(way_points);
   }
 
   void SetTask(ProtectedTaskManager *_task) {
@@ -224,7 +224,7 @@ protected:
   virtual void OnDestroy() override;
   virtual void OnResize(PixelSize new_size) override;
 
-  virtual void OnPaintBuffer(Canvas& canvas) override;
+  virtual void OnPaintBuffer(Canvas& canvas) noexcept override;
   virtual void OnPaint(Canvas& canvas) override;
 
   virtual void OnCancelMode() override;

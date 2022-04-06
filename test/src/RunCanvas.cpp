@@ -24,12 +24,20 @@ Copyright_License {
 #define ENABLE_SCREEN
 #define ENABLE_BUTTON_LOOK
 
+#if defined(__GNUC__) && !defined(__clang__)
+/* this warning is bogus because GCC is not clever enough to
+   understand that the switch/case in paint() always initialises the
+   "label" variable */
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 #include "Main.hpp"
 #include "Math/Angle.hpp"
 #include "ui/window/SingleWindow.hpp"
 #include "ui/canvas/BufferCanvas.hpp"
 #include "Form/Button.hpp"
 #include "Renderer/ButtonRenderer.hpp"
+#include "util/Compiler.h"
 
 #ifndef ENABLE_OPENGL
 #include "ui/canvas/WindowCanvas.hpp"
@@ -42,21 +50,16 @@ class TestWindow final : public UI::SingleWindow {
   Button buffer_button;
 #endif
   Button close_button;
-  unsigned page;
+  unsigned page = 0;
 #ifndef ENABLE_OPENGL
-  bool buffered;
+  bool buffered = false;
   BufferCanvas buffer;
 #endif
 
-  ButtonFrameRenderer button_renderer;
+  ButtonFrameRenderer button_renderer{*button_look};
 
 public:
-  TestWindow():page(0)
-#ifndef ENABLE_OPENGL
-              , buffered(false)
-#endif
-              , button_renderer(*button_look)
-  {}
+  using UI::SingleWindow::SingleWindow;
 
   void Create(PixelSize size) {
     SingleWindow::Create(_T("RunCanvas"), size);
@@ -146,7 +149,8 @@ private:
       rc.top = center.y - 20;
       rc.right = center.x + 50;
       rc.bottom = center.y + 20;
-      button_renderer.DrawButton(canvas, rc, page == 4, page == 4);
+      button_renderer.DrawButton(canvas, rc,
+                                 page == 4 ? ButtonState::PRESSED : ButtonState::ENABLED);
       label = page == 4
         ? _T("button down=true") : _T("button down=false");
     }
@@ -163,6 +167,9 @@ private:
       canvas.DrawPolygon(p2, 3);
       label = _T("huge polygon");
       break;
+
+    default:
+      gcc_unreachable();
     }
 
     canvas.SetTextColor(Color(0, 0, 128));
@@ -214,9 +221,9 @@ protected:
 };
 
 static void
-Main()
+Main(UI::Display &display)
 {
-  TestWindow window;
+  TestWindow window{display};
   window.Create({250, 250});
   window.Show();
 

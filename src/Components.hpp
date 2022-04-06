@@ -24,11 +24,10 @@ Copyright_License {
 #ifndef XCSOAR_COMPONENTS_HPP
 #define XCSOAR_COMPONENTS_HPP
 
-#include "util/Compiler.h"
-
 class FileCache;
 class TopographyStore;
 class RasterTerrain;
+class AsyncTerrainOverviewLoader;
 class GlideComputer;
 class DrawThread;
 class MultipleDevices;
@@ -41,8 +40,10 @@ class ProtectedAirspaceWarningManager;
 class ProtectedTaskManager;
 class Replay;
 class Logger;
+class NMEALogger;
 class GlueFlightLogger;
 class TrackingGlue;
+namespace TIM { class Glue; }
 
 // other global objects
 extern FileCache *file_cache;
@@ -52,6 +53,7 @@ extern ProtectedTaskManager *protected_task_manager;
 extern Replay *replay;
 extern TopographyStore *topography;
 extern RasterTerrain *terrain;
+extern AsyncTerrainOverviewLoader *terrain_loader;
 extern GlideComputer *glide_computer;
 #ifndef ENABLE_OPENGL
 extern DrawThread *draw_thread;
@@ -62,15 +64,17 @@ extern MergeThread *merge_thread;
 extern CalculationThread *calculation_thread;
 
 extern Logger *logger;
+extern NMEALogger *nmea_logger;
 extern GlueFlightLogger *flight_logger;
 
 extern TrackingGlue *tracking;
+extern TIM::Glue *tim_glue;
 
 /**
  * Returns the global ProtectedAirspaceWarningManager instance.  May
  * be nullptr if disabled.
  */
-gcc_pure
+[[gnu::pure]]
 ProtectedAirspaceWarningManager *
 GetAirspaceWarnings();
 

@@ -24,21 +24,11 @@ Copyright_License {
 #ifndef XCSOAR_SCREEN_OPENGL_TEXTURE_HPP
 #define XCSOAR_SCREEN_OPENGL_TEXTURE_HPP
 
-#include "ui/opengl/Features.hpp"
 #include "ui/opengl/System.hpp"
 #include "ui/dim/Rect.hpp"
 #include "FBO.hpp"
-#include "Asset.hpp"
 
 #include <cassert>
-
-#ifdef ENABLE_SDL
-#include <SDL_video.h>
-#endif
-
-#ifndef NDEBUG
-extern unsigned num_textures;
-#endif
 
 /**
  * This class represents an OpenGL texture.
@@ -66,8 +56,6 @@ public:
 #ifndef NDEBUG
     assert(allocated_size.width >= size.width);
     assert(allocated_size.height >= size.height);
-
-    ++num_textures;
 #endif
   }
 #endif
@@ -75,7 +63,9 @@ public:
   /**
    * Create a texture with undefined content.
    */
-  explicit GLTexture(PixelSize _size, bool _flipped = false) noexcept;
+  explicit GLTexture(GLint internal_format, PixelSize _size,
+                     GLenum format, GLenum type,
+                     bool _flipped = false) noexcept;
 
   GLTexture(GLint internal_format, PixelSize _size,
             GLenum format, GLenum type, const GLvoid *data,
@@ -83,20 +73,6 @@ public:
 
   ~GLTexture() noexcept {
     glDeleteTextures(1, &id);
-
-#ifndef NDEBUG
-    assert(num_textures > 0);
-    --num_textures;
-#endif
-  }
-
-  /**
-   * Returns the standard pixel format of the platform.
-   */
-  static constexpr GLenum GetType() noexcept {
-    return HaveGLES()
-      ? GL_UNSIGNED_SHORT_5_6_5
-      : GL_UNSIGNED_BYTE;
   }
 
   unsigned GetWidth() const noexcept {
@@ -107,12 +83,12 @@ public:
     return size.height;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   const PixelSize &GetSize() const noexcept {
     return size;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   PixelRect GetRect() const noexcept {
     return PixelRect(GetSize());
   }
@@ -120,7 +96,7 @@ public:
   /**
    * Returns the physical size of the texture.
    */
-  gcc_pure
+  [[gnu::pure]]
   const PixelSize &GetAllocatedSize() const noexcept {
     return allocated_size;
   }
@@ -138,7 +114,8 @@ public:
   /**
    * Change the size of the texture, discarding any previous contents.
    */
-  void ResizeDiscard(PixelSize new_size) noexcept;
+  void ResizeDiscard(GLint internal_format, PixelSize new_size,
+                     GLenum format, GLenum type) noexcept;
 
 protected:
   void Initialise() noexcept;

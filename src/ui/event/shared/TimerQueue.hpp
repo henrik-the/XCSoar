@@ -21,10 +21,7 @@ Copyright_License {
 }
 */
 
-#ifndef XCSOAR_EVENT_TIMER_QUEUE_HPP
-#define XCSOAR_EVENT_TIMER_QUEUE_HPP
-
-#include "util/Compiler.h"
+#pragma once
 
 #include <chrono>
 #include <set>
@@ -38,7 +35,7 @@ class Timer;
 class TimerQueue {
   struct TimerRecord {
     /**
-     * Projected MonotonicClockUS() value when this timer is due.
+     * Projected time point when this timer is due.
      */
     std::chrono::steady_clock::time_point due;
 
@@ -84,7 +81,7 @@ public:
    *
    * Caller must lock a mutex.
    */
-  gcc_pure
+  [[gnu::pure]]
   std::chrono::steady_clock::duration GetTimeout(std::chrono::steady_clock::time_point now) const noexcept;
 
   /**
@@ -107,5 +104,3 @@ public:
 };
 
 } // namespace UI
-
-#endif

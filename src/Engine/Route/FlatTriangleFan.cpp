@@ -26,24 +26,22 @@
 #include <cassert>
 
 void
-FlatTriangleFan::CalcBoundingBox()
+FlatTriangleFan::CalcBoundingBox() noexcept
 {
   assert(!vs.empty());
 
-  auto it = vs.begin(), end = vs.end();
-  bounding_box = FlatBoundingBox(*it);
-  for (++it; it != end; ++it)
-    bounding_box.Expand(*it);
+  bounding_box = {vs.begin(), vs.end()};
 }
 
 static constexpr bool
-IsSpike(FlatGeoPoint a, FlatGeoPoint b, FlatGeoPoint c)
+IsSpike(FlatGeoPoint a, FlatGeoPoint b, FlatGeoPoint c) noexcept
 {
   return Line2D<FlatGeoPoint>(a, b).Contains(c);
 }
 
 void
-FlatTriangleFan::AddOrigin(const AFlatGeoPoint &origin, size_t reserve)
+FlatTriangleFan::AddOrigin(const AFlatGeoPoint &origin,
+                           size_t reserve) noexcept
 {
   assert(vs.empty());
 
@@ -54,7 +52,7 @@ FlatTriangleFan::AddOrigin(const AFlatGeoPoint &origin, size_t reserve)
 }
 
 void
-FlatTriangleFan::AddPoint(FlatGeoPoint p)
+FlatTriangleFan::AddPoint(FlatGeoPoint p) noexcept
 {
   assert(!vs.empty());
 
@@ -73,8 +71,9 @@ FlatTriangleFan::AddPoint(FlatGeoPoint p)
  * Is there a spike wrapping around beginning and end of the
  * container?
  */
+[[gnu::pure]]
 static bool
-IsWrappedSpike(ConstBuffer<FlatGeoPoint> hull)
+IsWrappedSpike(ConstBuffer<FlatGeoPoint> hull) noexcept
 {
   assert(hull.size > 3);
 
@@ -83,7 +82,7 @@ IsWrappedSpike(ConstBuffer<FlatGeoPoint> hull)
 }
 
 bool
-FlatTriangleFan::CommitPoints(bool closed)
+FlatTriangleFan::CommitPoints(bool closed) noexcept
 {
   auto hull = GetHull(closed);
 
@@ -104,7 +103,7 @@ FlatTriangleFan::CommitPoints(bool closed)
 }
 
 bool
-FlatTriangleFan::IsInside(FlatGeoPoint p, bool closed) const
+FlatTriangleFan::IsInside(FlatGeoPoint p, bool closed) const noexcept
 {
   if (!bounding_box.IsInside(p))
     return false;

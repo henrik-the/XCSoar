@@ -25,7 +25,9 @@ Copyright_License {
 #include "TextInBox.hpp"
 #include "Look/WindArrowLook.hpp"
 #include "ui/canvas/Canvas.hpp"
+#include "Screen/Layout.hpp"
 #include "Math/Angle.hpp"
+#include "Math/Constants.hpp"
 #include "Math/Util.hpp"
 #include "Math/Screen.hpp"
 #include "NMEA/Derived.hpp"
@@ -41,20 +43,23 @@ Copyright_License {
 
 void
 WindArrowRenderer::DrawArrow(Canvas &canvas, PixelPoint pos, Angle angle,
-                             unsigned length, WindArrowStyle arrow_style,
-                             int offset) noexcept
+                             unsigned width, unsigned length,
+                             unsigned tail_length,
+                             WindArrowStyle arrow_style,
+                             int offset,
+                             unsigned scale) noexcept
 {
   // Draw arrow
 
   BulkPixelPoint arrow[] = {
-    { 0, -offset + 3 },
-    { -6, -offset - 3 - int(length) },
-    { 0, -offset + 3 - int(length) },
-    { 6, -offset - 3 - int(length) },
+    { 0, -offset + int(tail_length) },
+    { -int(width), -offset - int(tail_length + length) },
+    { 0, -offset - int(length - tail_length) },
+    { int(width), -offset - int(tail_length + length) },
   };
 
   // Rotate the arrow
-  PolygonRotateShift(arrow, ARRAY_SIZE(arrow), pos, angle);
+  PolygonRotateShift({arrow, ARRAY_SIZE(arrow)}, pos, angle, scale);
 
   canvas.Select(look.arrow_pen);
   canvas.Select(look.arrow_brush);
@@ -65,19 +70,18 @@ WindArrowRenderer::DrawArrow(Canvas &canvas, PixelPoint pos, Angle angle,
     canvas.DrawPolygon(arrow, ARRAY_SIZE(arrow));
   }
 
-  // Draw arrow tail
+  // Draw arrow shaft
 
   if (arrow_style == WindArrowStyle::FULL_ARROW) {
-    BulkPixelPoint tail[] = {
-      { 0, -offset + 3 },
-      { 0, -offset - 3 - int(std::min(20u, length) * 3u) },
+    BulkPixelPoint shaft[] = {
+      { 0, -offset + int(tail_length) },
+      { 0, -offset - int(tail_length + std::min(20u, length) * 3u) },
     };
 
-    PolygonRotateShift(tail, ARRAY_SIZE(tail),
-                       pos, angle);
+    PolygonRotateShift(shaft, pos, angle, scale);
 
-    canvas.Select(look.tail_pen);
-    canvas.DrawLine(tail[0], tail[1]);
+    canvas.Select(look.shaft_pen);
+    canvas.DrawLine(shaft[0], shaft[1]);
   }
 }
 
@@ -87,10 +91,21 @@ WindArrowRenderer::Draw(Canvas &canvas, const Angle screen_angle,
                         const PixelRect &rc,
                         WindArrowStyle arrow_style) noexcept
 {
-  // Draw arrow (and tail)
+  constexpr unsigned arrow_width = 6;
+  constexpr unsigned arrow_tail_length = 3;
+  constexpr unsigned arrow_offset = 23;
+
+  const unsigned scale = Layout::Scale(100U);
+  const Angle angle = wind.bearing - screen_angle;
+
+  // Draw arrow (and shaft)
 
   const unsigned length = uround(4 * wind.norm);
-  DrawArrow(canvas, pos, wind.bearing - screen_angle, length, arrow_style);
+  DrawArrow(canvas, pos, angle,
+            arrow_width, length, arrow_tail_length,
+            arrow_style,
+            arrow_offset,
+            scale);
 
   // Draw wind speed label
 
@@ -100,12 +115,10 @@ WindArrowRenderer::Draw(Canvas &canvas, const Angle screen_angle,
   canvas.SetTextColor(COLOR_BLACK);
   canvas.Select(*look.font);
 
-  const unsigned offset = uround(M_SQRT2 * wind.norm);
   BulkPixelPoint label[] = {
-    { 18, -26 - int(offset) },
+    { 0, -int(arrow_offset + length + arrow_tail_length) },
   };
-  PolygonRotateShift(label, ARRAY_SIZE(label),
-                     pos, wind.bearing - screen_angle);
+  PolygonRotateShift(label, pos, angle, scale);
 
   TextInBoxMode style;
   style.align = TextInBoxMode::Alignment::CENTER;

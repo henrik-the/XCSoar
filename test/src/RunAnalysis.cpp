@@ -58,7 +58,7 @@ Copyright_License {
 #include "Blackboard/InterfaceBlackboard.hpp"
 #include "DebugReplay.hpp"
 #include "io/FileLineReader.hpp"
-#include "Operation/Operation.hpp"
+#include "Operation/ConsoleOperationEnvironment.hpp"
 #include "Look/Look.hpp"
 #include "system/Args.hpp"
 
@@ -87,8 +87,8 @@ dlgStatusShowModal(int page)
 }
 
 void
-ConditionMonitorsUpdate(const NMEAInfo &basic, const DerivedInfo &calculated,
-                        const ComputerSettings &settings)
+ConditionMonitors::Update(const NMEAInfo &basic, const DerivedInfo &calculated,
+                          const ComputerSettings &settings) noexcept
 {
 }
 
@@ -105,9 +105,9 @@ static RasterTerrain *terrain;
 static void
 LoadFiles(Airspaces &airspace_database)
 {
-  NullOperationEnvironment operation;
+  ConsoleOperationEnvironment operation;
 
-  terrain = RasterTerrain::OpenTerrain(NULL, operation);
+  terrain = RasterTerrain::OpenTerrain(nullptr, operation).release();
 
   const AtmosphericPressure pressure = AtmosphericPressure::Standard();
   ReadAirspace(airspace_database, terrain, pressure, operation);
@@ -147,7 +147,7 @@ ParseCommandLine(Args &args)
 }
 
 static void
-Main()
+Main(UI::Display &display)
 {
   const Waypoints way_points;
 
@@ -188,7 +188,7 @@ Main()
   LoadReplay(replay, glide_computer, blackboard);
   delete replay;
 
-  UI::SingleWindow main_window;
+  UI::SingleWindow main_window{display};
   main_window.Create(_T("RunAnalysis"),
                      {640, 480});
 

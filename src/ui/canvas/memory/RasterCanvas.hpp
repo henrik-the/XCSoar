@@ -21,15 +21,14 @@ Copyright_License {
 }
 */
 
-#ifndef XCSOAR_SCREEN_RASTER_CANVAS_HPP
-#define XCSOAR_SCREEN_RASTER_CANVAS_HPP
+#pragma once
 
+#include "Concepts.hpp"
 #include "Buffer.hpp"
 #include "Bresenham.hpp"
 #include "Murphy.hpp"
 #include "ui/dim/Point.hpp"
 #include "util/AllocatedArray.hxx"
-#include "util/Compiler.h"
 
 #include <cassert>
 
@@ -47,7 +46,7 @@ Copyright_License {
  *
  * Much of this code was copied from SDL_gfx.
  */
-template<typename PixelTraits>
+template<AnyPixelTraits PixelTraits>
 class RasterCanvas : private PixelTraits {
   using typename PixelTraits::pointer;
   using typename PixelTraits::rpointer;
@@ -57,6 +56,7 @@ class RasterCanvas : private PixelTraits {
   using PixelTraits::ForVertical;
 
 public:
+  using Point = PixelPoint;
   using typename PixelTraits::color_type;
 
 private:
@@ -73,6 +73,10 @@ public:
 protected:
   PixelTraits &GetPixelTraits() noexcept {
     return *this;
+  }
+
+  PixelTraitsOperations<PixelTraits> GetSolidPixelOperations() noexcept {
+    return GetPixelTraits();
   }
 
   constexpr bool Check(unsigned x, unsigned y) const noexcept {
@@ -153,7 +157,7 @@ protected:
     return !(a | b);
   }
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned ClipEncodeX(int x) const noexcept {
     if (unsigned(x)< buffer.width)
       return 0;
@@ -162,7 +166,7 @@ protected:
     return CLIP_RIGHT_EDGE;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned ClipEncodeY(int y) const noexcept {
     if (unsigned(y)< buffer.height)
       return 0;
@@ -171,7 +175,7 @@ protected:
     return CLIP_BOTTOM_EDGE;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   unsigned ClipEncode(int x, int y) const noexcept {
     return ClipEncodeX(x) | ClipEncodeY(y);
   }
@@ -247,7 +251,7 @@ protected:
   }
 
 public:
-  template<typename PixelOperations>
+  template<AnyWritePixelOperation PixelOperations>
   void DrawPixel(int x, int y, color_type c,
                  PixelOperations operations) noexcept {
     if (Check(x, y))
@@ -255,10 +259,10 @@ public:
   }
 
   void DrawPixel(int x, int y, color_type c) noexcept {
-    DrawPixel(x, y, c, GetPixelTraits());
+    DrawPixel(x, y, c, GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations>
+  template<AnyFillPixelOperation PixelOperations>
   void FillRectangle(int x1, int y1, int x2, int y2, color_type c,
                      PixelOperations operations) noexcept {
     if (x1 < 0)
@@ -285,10 +289,10 @@ public:
   }
 
   void FillRectangle(int x1, int y1, int x2, int y2, color_type c) noexcept {
-    FillRectangle<PixelTraits>(x1, y1, x2, y2, c, GetPixelTraits());
+    FillRectangle(x1, y1, x2, y2, c, GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations>
+  template<AnyFillPixelOperation PixelOperations>
   void DrawHLine(int x1, int x2, int y, color_type c,
                  PixelOperations operations) noexcept {
     if (y < 0 || unsigned(y) >= buffer.height)
@@ -309,10 +313,10 @@ public:
 
   void DrawHLine(int x1, int x2, int y, color_type c) noexcept {
     DrawHLine(x1, x2, y, c,
-              GetPixelTraits());
+              GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations>
+  template<AnyWritePixelOperation PixelOperations>
   void DrawVLine(int x, int y1, int y2, color_type c,
                  PixelOperations operations) noexcept {
     if (x < 0 || unsigned(x) >= buffer.width)
@@ -343,7 +347,7 @@ public:
   }
 
   void DrawRectangle(int x1, int y1, int x2, int y2, color_type c) noexcept {
-    DrawRectangle(x1, y1, x2, y2, c, GetPixelTraits());
+    DrawRectangle(x1, y1, x2, y2, c, GetSolidPixelOperations());
   }
 
   void DrawLineDirect(const int x1, const int y1, const int x2, const int y2,
@@ -362,8 +366,8 @@ public:
 
     pointer p = At(x1, y1);
 
-    int pixx = PixelTraits::CalcIncrement(sx) * sizeof(*p);
-    int pixy = sy * buffer.pitch;
+    std::ptrdiff_t pixx = PixelTraits::CalcIncrement(sx) * sizeof(*p);
+    std::ptrdiff_t pixy = sy * static_cast<std::ptrdiff_t>(buffer.pitch);
 
     if (dx < dy) {
       std::swap(dx, dy);
@@ -411,10 +415,10 @@ public:
       return;
     }
 
-    MurphyIterator<RasterCanvas<PixelTraits>> murphy(*this, c, line_mask,
-                                                     line_mask_position);
-    murphy.Wideline(x1, y1, x2, y2, thickness, 0);
-    murphy.Wideline(x1, y1, x2, y2, thickness, 1);
+    MurphyIterator murphy(*this, c, line_mask,
+                          line_mask_position);
+    murphy.Wideline({x1, y1}, {x2, y2}, thickness, 0);
+    murphy.Wideline({x1, y1}, {x2, y2}, thickness, 1);
     line_mask_position = murphy.GetLineMaskPosition();
   }
 
@@ -493,10 +497,10 @@ public:
       if (p_1->y == p_0->y) {
         // don't add horizontal line, just draw it now?
       } else if (p_1->y < p_0->y) {
-        edge_buffer[n_edges] = BresenhamIterator(p_1->x, p_1->y, p_0->x, p_0->y);
+        edge_buffer[n_edges] = BresenhamIterator(*p_1, *p_0);
         n_edges++;
       } else {
-        edge_buffer[n_edges] = BresenhamIterator(p_0->x, p_0->y, p_1->x, p_1->y);
+        edge_buffer[n_edges] = BresenhamIterator(*p_0, *p_1);
         n_edges++;
       }
       miny = std::min(p_0->y, miny);
@@ -526,11 +530,11 @@ public:
       for (auto it= edge_start; it!= edge_end; ++it) {
         // advance line until it gets to next y value (if possible)
         changed |= it->AdvanceTo(y);
-        if (it->y == y) {
-          if (it->x < x)
+        if (it->p.y == y) {
+          if (it->p.x < x)
             changed = true; // order changed
           else
-            x = it->x;
+            x = it->p.x;
         }
       }
 
@@ -555,10 +559,10 @@ public:
       int x0 = -1;
       for (auto it= edge_start; it!= edge_end; ++it) {
         // if this item is valid, it's a start point or end point of a line
-        if (it->y != y) 
+        if (it->p.y != y) 
           continue;
 
-        int x1 = it->x;
+        int x1 = it->p.x;
         if (mode) 
           DrawHLine(x0, x1, y, color, operations);
         mode = !mode;
@@ -640,9 +644,9 @@ public:
   void FillPolygon(const PixelPoint *points, unsigned n,
                    color_type color) noexcept {
     FillPolygonFast(points, n, color,
-                    GetPixelTraits());
+                    GetSolidPixelOperations());
 //    FillPolygon(points, n, color,
-//                GetPixelTraits());
+//                GetSolidPixelOperations());
   }
 
   template<typename PixelOperations>
@@ -724,10 +728,10 @@ public:
 
   void DrawCircle(int x, int y, unsigned rad, color_type color) noexcept {
     DrawCircle(x, y, rad, color,
-               GetPixelTraits());
+               GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations>
+  template<AnyFullPixelOperation PixelOperations>
   void FillCircle(int x, int y, unsigned rad, color_type color,
                   PixelOperations operations) noexcept {
     // Special case for rad=0 - draw a point
@@ -808,10 +812,10 @@ public:
 
   void FillCircle(int x, int y, unsigned rad, color_type color) noexcept {
     FillCircle(x, y, rad, color,
-               GetPixelTraits());
+               GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations, typename SPT=PixelTraits>
+  template<typename PixelOperations, AnyPixelTraits SPT=PixelTraits>
 #ifndef __clang__
   __attribute__((flatten))
 #endif
@@ -834,10 +838,10 @@ public:
   void CopyRectangle(int x, int y, unsigned w, unsigned h,
                      const_pointer src, unsigned src_pitch) noexcept {
     CopyRectangle(x, y, w, h, src, src_pitch,
-                  GetPixelTraits());
+                  GetSolidPixelOperations());
   }
 
-  template<typename PixelOperations, typename SPT=PixelTraits>
+  template<typename PixelOperations, AnyPixelTraits SPT=PixelTraits>
   void ScalePixels(rpointer dest, unsigned dest_size,
                    typename SPT::const_rpointer src,
                    unsigned src_size,
@@ -869,7 +873,7 @@ public:
     }
   }
 
-  template<typename PixelOperations, typename SPT=PixelTraits>
+  template<typename PixelOperations, AnyPixelTraits SPT=PixelTraits>
   void ScaleRectangle(PixelPoint dest_position, PixelSize dest_size,
                       typename SPT::const_rpointer src, unsigned src_pitch,
                       PixelSize src_size,
@@ -914,8 +918,6 @@ public:
                       PixelSize src_size) noexcept {
     ScaleRectangle(dest_position, dest_size,
                    src, src_pitch, src_size,
-                   GetPixelTraits());
+                   GetSolidPixelOperations());
   }
 };
-
-#endif

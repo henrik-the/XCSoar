@@ -52,12 +52,18 @@ TestReader()
   ok1(equals(plane.polar_shape[0].w, -0.606));
   ok1(equals(plane.polar_shape[1].w, -0.99));
   ok1(equals(plane.polar_shape[2].w, -1.918));
-  ok1(equals(plane.reference_mass, 318));
-  ok1(equals(plane.dry_mass, 302));
+  ok1(equals(plane.polar_shape.reference_mass, 318));
+  ok1(equals(plane.dry_mass_obsolete, 302));
+  ok1(equals(plane.empty_mass, 212));
   ok1(equals(plane.max_ballast, 100));
   ok1(plane.dump_time == 90);
   ok1(equals(plane.max_speed, 41.666));
   ok1(equals(plane.wing_area, 9.8));
+  ok1(equals(plane.weglide_glider_type, 261));
+
+  plane = Plane();
+  PlaneGlue::ReadFile(plane, Path(_T("test/data/D-4449dry.xcp")));
+  ok1(equals(plane.empty_mass, 212));
 }
 
 static void
@@ -75,12 +81,14 @@ TestWriter()
   plane.polar_shape[0].w = -0.606;
   plane.polar_shape[1].w = -0.99;
   plane.polar_shape[2].w = -1.918;
-  plane.reference_mass = 318;
-  plane.dry_mass = 302;
+  plane.polar_shape.reference_mass = 318;
+  plane.dry_mass_obsolete = 302;
+  plane.empty_mass = 212;
   plane.max_ballast = 100;
   plane.dump_time = 90;
   plane.max_speed = 41.666;
   plane.wing_area = 9.8;
+  plane.weglide_glider_type = 160;
 
   PlaneGlue::WriteFile(plane, Path(_T("output/D-4449.xcp")));
 
@@ -90,6 +98,7 @@ TestWriter()
   bool found1 = false, found2 = false, found3 = false, found4 = false;
   bool found5 = false, found6 = false, found7 = false, found8 = false;
   bool found9 = false, found10 = false, found11 = false, found12 = false;
+  bool found13 = false, found14 = false;
 
   TCHAR *line;
   while ((line = reader.ReadLine()) != NULL) {
@@ -107,7 +116,7 @@ TestWriter()
       found6 = true;
     if (StringIsEqual(line, _T("PolarReferenceMass=\"318.000000\"")))
       found7 = true;
-    if (StringIsEqual(line, _T("PolarDryMass=\"302.000000\"")))
+    if (StringIsEqual(line, _T("PlaneEmptyMass=\"212.000000\"")))
       found8 = true;
     if (StringIsEqual(line, _T("MaxBallast=\"100.000000\"")))
       found9 = true;
@@ -117,11 +126,15 @@ TestWriter()
       found11 = true;
     if (StringIsEqual(line, _T("WingArea=\"9.800000\"")))
       found12 = true;
+    if (StringIsEqual(line, _T("WeGlideAircraftType=\"160\"")))
+      found13 = true;
+    if (StringIsEqual(line, _T("PolarDryMass=\"302.000000\"")))
+      found14 = true;
 
     count++;
   }
 
-  ok1(count == 12);
+  ok1(count == 14);
   ok1(found1);
   ok1(found2);
   ok1(found3);
@@ -134,11 +147,13 @@ TestWriter()
   ok1(found10);
   ok1(found11);
   ok1(found12);
+  ok1(found13);
+  ok1(found14);
 }
 
 int main(int argc, char **argv)
 try {
-  plan_tests(30);
+  plan_tests(35);
 
   TestReader();
   TestWriter();

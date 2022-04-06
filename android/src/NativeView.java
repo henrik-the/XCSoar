@@ -22,21 +22,17 @@
 
 package org.xcsoar;
 
-import javax.microedition.khronos.egl.EGL10;
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.egl.EGLContext;
-import javax.microedition.khronos.egl.EGLDisplay;
-import javax.microedition.khronos.egl.EGLSurface;
-import javax.microedition.khronos.opengles.GL10;
-
 import java.io.File;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.app.Activity;
 import android.view.MotionEvent;
 import android.view.KeyEvent;
+import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
+import android.view.View;
+import android.view.ViewParent;
 import android.os.Build;
 import android.os.Handler;
 import android.net.Uri;
@@ -49,6 +45,8 @@ import android.graphics.BitmapFactory;
 import android.webkit.MimeTypeMap;
 
 class EGLException extends Exception {
+  private static final long serialVersionUID = 5928634879321047581L;
+
   public EGLException(String _msg) {
     super(_msg);
   }
@@ -61,29 +59,16 @@ class NativeView extends SurfaceView
   implements SurfaceHolder.Callback, Runnable {
   private static final String TAG = "XCSoar";
 
-  final Handler quitHandler, errorHandler;
+  /**
+   * A native pointer to a C++ #TopWindow instance.
+   */
+  private long ptr;
+
+  final Handler quitHandler, wakelockhandler, fullScreenHandler, errorHandler;
 
   Resources resources;
 
   final boolean hasKeyboard;
-
-  EGL10 egl;
-  EGLDisplay display = EGL10.EGL_NO_DISPLAY;
-  EGLConfig config;
-  EGLContext context = EGL10.EGL_NO_CONTEXT;
-  EGLSurface surface = EGL10.EGL_NO_SURFACE;
-
-  /**
-   * A 1x1 pbuffer surface that is used to activate the EGLContext
-   * while we have no real surface.
-   */
-  EGLSurface dummySurface = EGL10.EGL_NO_SURFACE;
-
-  /**
-   * Is the EGLSurface currently valid?  This is modified by
-   * SurfaceHolder.Callback methods.
-   */
-  boolean haveSurface = false;
 
   /**
    * Is the extension ARB_texture_non_power_of_two present?  If yes,
@@ -94,18 +79,20 @@ class NativeView extends SurfaceView
   Thread thread;
 
   public NativeView(Activity context, Handler _quitHandler,
+                    Handler _wakeLockHandler,
+                    Handler _fullScreenHandler,
                     Handler _errorHandler) {
     super(context);
 
     quitHandler = _quitHandler;
+    wakelockhandler = _wakeLockHandler;
+    fullScreenHandler = _fullScreenHandler;
     errorHandler = _errorHandler;
 
     resources = context.getResources();
 
     hasKeyboard = resources.getConfiguration().keyboard !=
       Configuration.KEYBOARD_NOKEYS;
-
-    touchInput = DifferentTouchInput.getInstance();
 
     SurfaceHolder holder = getHolder();
     holder.addCallback(this);
@@ -117,158 +104,25 @@ class NativeView extends SurfaceView
     thread.start();
   }
 
-  private static EGLConfig chooseEglConfig(EGL10 egl, EGLDisplay display)
-    throws EGLException {
-    int[] num_config = new int[1];
-    int[] configSpec = new int[]{
-      EGL10.EGL_STENCIL_SIZE, 1,  /* Don't change this position in array! */
-      EGL10.EGL_RED_SIZE, 4,
-      EGL10.EGL_GREEN_SIZE, 4,
-      EGL10.EGL_BLUE_SIZE, 4,
-      EGL10.EGL_ALPHA_SIZE, 0,
-      EGL10.EGL_DEPTH_SIZE, 0,
-      EGL10.EGL_NONE
-    };
-
-    egl.eglChooseConfig(display, configSpec, null, 0, num_config);
-    if (num_config[0] == 0) {
-      /* fallback in case stencil buffer is not available */
-      configSpec[1] = 0;
-      egl.eglChooseConfig(display, configSpec, null, 0, num_config);
-    }
-
-    int numConfigs = num_config[0];
-    EGLConfig[] configs = new EGLConfig[numConfigs];
-    if (!egl.eglChooseConfig(display, configSpec,
-                             configs, numConfigs, num_config))
-      throw new EGLException("eglChooseConfig() failed: " + egl.eglGetError());
-
-    EGLConfig closestConfig = EGLUtil.findClosestConfig(egl, display, configs,
-                                                        4, 4, 4, 0, 0, 8);
-    if (closestConfig == null)
-      throw new EGLException("eglChooseConfig() failed");
-
-    return closestConfig;
-  }
-
-  private void initGL(SurfaceHolder holder) throws EGLException {
-    /* initialize display */
-
-    if (display == EGL10.EGL_NO_DISPLAY) {
-      egl = (EGL10)EGLContext.getEGL();
-      display = egl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
-      if (display == EGL10.EGL_NO_DISPLAY)
-        throw new EGLException("eglGetDisplay() failed");
-
-      int[] version = new int[2];
-      if (!egl.eglInitialize(display, version))
-        throw new EGLException("eglInitialize() failed: " + egl.eglGetError());
-
-      Log.d(TAG, "EGL vendor: " +
-            egl.eglQueryString(display, EGL10.EGL_VENDOR));
-      Log.d(TAG, "EGL version: " +
-            egl.eglQueryString(display, EGL10.EGL_VERSION));
-      Log.d(TAG, "EGL extensions: " +
-            egl.eglQueryString(display, EGL10.EGL_EXTENSIONS));
-    }
-
-    /* choose a configuration */
-
-    if (config == null) {
-      config = chooseEglConfig(egl, display);
-      Log.d(TAG, "EGLConfig = " + EGLUtil.toString(egl, display, config));
-    }
-
-    /* initialize context and surface */
-
-    if (context == EGL10.EGL_NO_CONTEXT) {
-      final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
-      final int contextClientVersion = 2;
-      final int[] contextAttribList = new int[]{
-        EGL_CONTEXT_CLIENT_VERSION, contextClientVersion,
-        EGL10.EGL_NONE
-      };
-
-      context = egl.eglCreateContext(display, config,
-                                     EGL10.EGL_NO_CONTEXT, contextAttribList);
-      if (context == EGL10.EGL_NO_CONTEXT)
-        throw new EGLException("eglCreateContext() failed: " +
-                               egl.eglGetError());
-    }
-
-    surface = egl.eglCreateWindowSurface(display, config,
-                                         holder, null);
-    if (surface == EGL10.EGL_NO_SURFACE)
-      throw new EGLException("eglCreateWindowSurface() failed: " +
-                             egl.eglGetError());
-
-    if (!egl.eglMakeCurrent(display, surface, surface, context))
-      throw new EGLException("eglMakeCurrent() failed: " + egl.eglGetError());
-
-    GL10 gl = (GL10)context.getGL();
-    Log.d(TAG, "OpenGL vendor: " + gl.glGetString(GL10.GL_VENDOR));
-    Log.d(TAG, "OpenGL version: " + gl.glGetString(GL10.GL_VERSION));
-    Log.d(TAG, "OpenGL renderer: " + gl.glGetString(GL10.GL_RENDERER));
-    Log.d(TAG, "OpenGL extensions: " + gl.glGetString(GL10.GL_EXTENSIONS));
+  /**
+   * Called from TopCanvas::AcquireSurface() (native code).
+   */
+  private Surface getSurface() {
+    return getHolder().getSurface();
   }
 
   /**
-   * Initializes the OpenGL surface.  Called by the native code.
+   * Called from native code.
    */
-  private boolean initSurface() {
-    if (!haveSurface)
-      /* this is futile, and will only result in
-         "java.lang.IllegalArgumentException: Make sure the
-         SurfaceView or associated SurfaceHolder has a valid
-         Surface" */
-      return false;
-
-    try {
-      initGL(getHolder());
-      return true;
-    } catch (Exception e) {
-      Log.e(TAG, "initGL error", e);
-      deinitSurface();
-      return false;
-    }
+  void acquireWakeLock() {
+    wakelockhandler.sendEmptyMessage(0);
   }
 
   /**
-   * Deinitializes the OpenGL surface.
+   * Called from native code.
    */
-  private void deinitSurface() {
-    if (surface != EGL10.EGL_NO_SURFACE) {
-      if (dummySurface == EGL10.EGL_NO_SURFACE) {
-        int pbufferAttribs[] = {
-          EGL10.EGL_WIDTH, 1,
-          EGL10.EGL_HEIGHT, 1,
-          EGL10.EGL_NONE
-        };
-
-        dummySurface = egl.eglCreatePbufferSurface(display, config,
-                                                   pbufferAttribs);
-      }
-
-      egl.eglMakeCurrent(display, dummySurface, dummySurface, context);
-      egl.eglDestroySurface(display, surface);
-      surface = EGL10.EGL_NO_SURFACE;
-    }
-  }
-
-  private void deinitEGL() {
-    deinitSurface();
-
-    if (context != EGL10.EGL_NO_CONTEXT) {
-      egl.eglDestroyContext(display, context);
-      context = EGL10.EGL_NO_CONTEXT;
-    }
-
-    if (display != EGL10.EGL_NO_DISPLAY) {
-      egl.eglTerminate(display);
-      display = EGL10.EGL_NO_DISPLAY;
-    }
-
-    config = null;
+  void setFullScreen(boolean fullScreen) {
+    fullScreenHandler.sendEmptyMessage(fullScreen ? 1 : 0);
   }
 
   private boolean setRequestedOrientation(int requestedOrientation) {
@@ -284,13 +138,10 @@ class NativeView extends SurfaceView
   }
 
   @Override public void surfaceCreated(SurfaceHolder holder) {
-    haveSurface = true;
   }
 
   @Override public void surfaceChanged(SurfaceHolder holder, int format,
                                        int width, int height) {
-    haveSurface = true;
-
     if (thread == null || !thread.isAlive())
       start();
     else
@@ -298,48 +149,48 @@ class NativeView extends SurfaceView
   }
 
   @Override public void surfaceDestroyed(SurfaceHolder holder) {
-    haveSurface = false;
   }
 
   @Override public void run() {
-    try {
-      initGL(getHolder());
-    } catch (Exception e) {
-      Log.e(TAG, "initGL error", e);
-      errorHandler.sendMessage(errorHandler.obtainMessage(0, e));
-      deinitEGL();
-      return;
-    }
+    final Context context = getContext();
 
     android.graphics.Rect r = getHolder().getSurfaceFrame();
     DisplayMetrics metrics = new DisplayMetrics();
-    ((Activity)getContext()).getWindowManager().getDefaultDisplay().getMetrics(metrics);
+    ((Activity)context).getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
     try {
-      if (initializeNative(getContext(), r.width(), r.height(),
-                           (int)metrics.xdpi, (int)metrics.ydpi,
-                           Build.VERSION.SDK_INT, Build.PRODUCT))
-        runNative();
+      try {
+        context.startService(new Intent(context, XCSoar.serviceClass));
+      } catch (IllegalStateException e) {
+        /* we get crash reports on this all the time, but I don't
+           know why - Android docs say "the application is in a
+           state where the service can not be started (such as not
+           in the foreground in a state when services are allowed)",
+           but we're about to be resumed, which means we're in
+           foreground... */
+      }
+
+      try {
+        runNative(context, r.width(), r.height(),
+                  (int)metrics.xdpi, (int)metrics.ydpi,
+                  Build.VERSION.SDK_INT, Build.PRODUCT);
+      } finally {
+        context.stopService(new Intent(context, XCSoar.serviceClass));
+      }
     } catch (Exception e) {
       Log.e(TAG, "Initialisation error", e);
       errorHandler.sendMessage(errorHandler.obtainMessage(0, e));
-      deinitEGL();
       return;
     }
 
-    Log.d(TAG, "deinitializeNative()");
-    deinitializeNative();
-
-    Log.d(TAG, "sending message to quitHandler");
-    quitHandler.sendMessage(quitHandler.obtainMessage());
+    quitHandler.sendEmptyMessage(0);
   }
 
-  protected native boolean initializeNative(Context context,
-                                            int width, int height,
-                                            int xdpi, int ydpi,
-                                            int sdk_version, String product);
-  protected native void runNative();
-  protected native void deinitializeNative();
+  protected native void runNative(Context context,
+                                  int width, int height,
+                                  int xdpi, int ydpi,
+                                  int sdk_version, String product);
+
   protected native void resizedNative(int width, int height);
 
   protected native void pauseNative();
@@ -348,12 +199,6 @@ class NativeView extends SurfaceView
   protected native void setBatteryPercent(int level, int plugged);
 
   protected native void setHapticFeedback(boolean on);
-
-  private int findConfigAttrib(EGLConfig config, int attribute,
-                               int defaultValue) {
-    return EGLUtil.getConfigAttrib(egl, display, config,
-                                   attribute, defaultValue);
-  }
 
   /**
    * Finds the next power of two.  Used to calculate texture sizes.
@@ -421,25 +266,42 @@ class NativeView extends SurfaceView
     return BitmapUtil.bitmapToOpenGL(bmp, false, alpha, result);
   }
 
+  private void shareText(String text) {
+    Intent send = new Intent();
+    send.setAction(Intent.ACTION_SEND);
+    send.putExtra(Intent.EXTRA_TEXT, text);
+    send.setType("text/plain");
+
+    Intent share = Intent.createChooser(send, null);
+    getContext().startActivity(share);
+  }
+
   /**
    * Starts a VIEW intent for a given file
    */
-  private void openFile(String pathName) {
+  private void openWaypointFile(int id, String filename) {
     Intent intent = new Intent();
     intent.setAction(Intent.ACTION_VIEW);
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK +
                     Intent.FLAG_RECEIVER_REPLACE_PENDING);
-    File file = new File(pathName);
 
     try {
-      String extension = pathName.substring(pathName.lastIndexOf(".") + 1);
+      String extension = filename.substring(filename.lastIndexOf(".") + 1);
       MimeTypeMap mime = MimeTypeMap.getSingleton();
       String mimeType = mime.getMimeTypeFromExtension(extension);
 
-      intent.setDataAndType(Uri.fromFile(file), mimeType);
+      /* this URI is going to be handled by FileProvider */
+      Uri uri = new Uri.Builder().scheme("content")
+        .authority("org.xcsoar")
+        .encodedPath("/waypoints/" + id + "/" + Uri.encode(filename))
+        .build();
+
+      intent.setDataAndType(uri, mimeType);
+      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
       getContext().startActivity(intent);
     } catch (Exception e) {
-      Log.e(TAG, "NativeView.openFile('" + pathName + "') error", e);
+      Log.e(TAG, "NativeView.openFile('" + filename + "') error", e);
     }
   }
 
@@ -449,7 +311,45 @@ class NativeView extends SurfaceView
 
   @Override public boolean onTouchEvent(final MotionEvent event)
   {
-    touchInput.process(event);
+    /* the MotionEvent coordinates are supposed to be relative to this
+       View, but in fact they are not: they seem to be relative to
+       this app's Window; to work around this, we apply an offset;
+       this.getXY() (which is usually 0) plus getParent().getXY()
+       (which is a FrameLayout with non-zero coordinates unless we're
+       in full-screen mode) */
+    float offsetX = getX(), offsetY = getY();
+    ViewParent _p = getParent();
+    if (_p instanceof View) {
+      View p = (View)_p;
+      offsetX += p.getX();
+      offsetY += p.getY();
+    }
+
+    final int x = (int)(event.getX() - offsetX);
+    final int y = (int)(event.getY() - offsetY);
+
+    switch (event.getActionMasked()) {
+    case MotionEvent.ACTION_DOWN:
+      EventBridge.onMouseDown(x, y);
+      break;
+
+    case MotionEvent.ACTION_UP:
+      EventBridge.onMouseUp(x, y);
+      break;
+
+    case MotionEvent.ACTION_MOVE:
+      EventBridge.onMouseMove(x, y);
+      break;
+
+    case MotionEvent.ACTION_POINTER_DOWN:
+      EventBridge.onPointerDown();
+      break;
+
+    case MotionEvent.ACTION_POINTER_UP:
+      EventBridge.onPointerUp();
+      break;
+    }
+
     return true;
   }
 
@@ -459,9 +359,6 @@ class NativeView extends SurfaceView
 
   public void onPause() {
     pauseNative();
-  }
-
-  public void exitApp() {
   }
 
   private final int translateKeyCode(int keyCode) {
@@ -490,6 +387,4 @@ class NativeView extends SurfaceView
     EventBridge.onKeyUp(translateKeyCode(keyCode));
     return true;
   }
-
-  DifferentTouchInput touchInput = null;
 }

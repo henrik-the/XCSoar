@@ -35,24 +35,24 @@ Copyright_License {
 
 class ShowMenuButtonRenderer : public ButtonRenderer {
 public:
-  unsigned GetMinimumButtonWidth() const override {
+  unsigned GetMinimumButtonWidth() const noexcept override {
     return Layout::GetMinimumControlHeight();
   }
 
   void DrawButton(Canvas &canvas, const PixelRect &rc,
-                  bool enabled, bool focused, bool pressed) const override;
+                  ButtonState state) const noexcept override;
 };
 
 void
 ShowMenuButton::Create(ContainerWindow &parent, const PixelRect &rc,
-                       WindowStyle style)
+                       WindowStyle style) noexcept
 {
   Button::Create(parent, rc, style,
                  std::make_unique<ShowMenuButtonRenderer>());
 }
 
 bool
-ShowMenuButton::OnClicked()
+ShowMenuButton::OnClicked() noexcept
 {
   InputEvents::ShowMenu();
   return true;
@@ -60,8 +60,7 @@ ShowMenuButton::OnClicked()
 
 void
 ShowMenuButtonRenderer::DrawButton(Canvas &canvas, const PixelRect &rc,
-                                   bool enabled, bool focused,
-                                   bool pressed) const
+                                   ButtonState state) const noexcept
 {
   const unsigned pen_width = Layout::ScalePenWidth(2);
   const unsigned padding = Layout::GetTextPadding() + pen_width;
@@ -80,7 +79,7 @@ ShowMenuButtonRenderer::DrawButton(Canvas &canvas, const PixelRect &rc,
 
   canvas.DrawPolyline(m, ARRAY_SIZE(m));
 
-  if (pressed) {
+  if (state == ButtonState::PRESSED) {
 #ifdef ENABLE_OPENGL
     const ScopeAlphaBlend alpha_blend;
     canvas.DrawFilledRectangle(rc, COLOR_YELLOW.WithAlpha(80));

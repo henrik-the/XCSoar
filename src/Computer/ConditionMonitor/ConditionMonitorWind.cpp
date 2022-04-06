@@ -30,7 +30,7 @@ Copyright_License {
 bool
 ConditionMonitorWind::CheckCondition(const NMEAInfo &basic,
                                      const DerivedInfo &calculated,
-                                     const ComputerSettings &settings)
+                                     const ComputerSettings &settings) noexcept
 {
   wind = calculated.GetWindOrZero();
 
@@ -40,22 +40,22 @@ ConditionMonitorWind::CheckCondition(const NMEAInfo &basic,
   }
 
   auto mag_change = fabs(wind.norm - last_wind.norm);
-  auto dir_change = (wind.bearing - last_wind.bearing).AsDelta().AbsoluteDegrees();
+  auto dir_change = (wind.bearing - last_wind.bearing).AsDelta().Absolute();
 
   if (mag_change > 2.5)
     return true;
 
-  return wind.norm > 5 && dir_change > 45;
+  return wind.norm > 5 && dir_change > Angle::Degrees(45);
 }
 
 void
-ConditionMonitorWind::Notify()
+ConditionMonitorWind::Notify() noexcept
 {
   Message::AddMessage(_("Significant wind change"));
 }
 
 void
-ConditionMonitorWind::SaveLast()
+ConditionMonitorWind::SaveLast() noexcept
 {
   last_wind = wind;
 }

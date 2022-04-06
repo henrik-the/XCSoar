@@ -28,7 +28,6 @@ Copyright_License {
 #include "UIGlobals.hpp"
 #include "Look/DialogLook.hpp"
 #include "Form/Panel.hpp"
-#include "Form/List.hpp"
 #include "Form/Draw.hpp"
 #include "Form/Button.hpp"
 #include "Renderer/SymbolButtonRenderer.hpp"
@@ -42,6 +41,7 @@ Copyright_License {
 #include "Screen/Layout.hpp"
 #include "ui/event/KeyCode.hpp"
 #include "ui/control/LargeTextWindow.hpp"
+#include "ui/control/List.hpp"
 #include "MainWindow.hpp"
 #include "Interface.hpp"
 #include "Components.hpp"
@@ -59,7 +59,10 @@ Copyright_License {
 #include "util/StringPointer.hxx"
 #include "util/AllocatedString.hxx"
 
-#include <cassert>
+#ifdef ANDROID
+#include "Android/NativeView.hpp"
+#include "Android/Main.hpp"
+#endif
 
 #ifdef HAVE_RUN_FILE
 
@@ -94,7 +97,13 @@ WaypointExternalFileListHandler::OnActivateItem(unsigned i) noexcept
   auto file = waypoint->files_external.begin();
   std::advance(file, i);
 
+#ifdef ANDROID
+  /* on Android, the ContentProvider API needs to be used to give
+     other apps access to this file */
+  native_view->OpenWaypointFile(Java::GetEnv(), waypoint->id, file->c_str());
+#else
   RunFile(LocalPath(file->c_str()).c_str());
+#endif
 }
 
 void
@@ -293,6 +302,21 @@ public:
       return false;
   }
 
+  bool HasFocus() const noexcept override {
+    return (task_manager != nullptr && goto_button.HasFocus()) ||
+      (!images.empty() && (magnify_button.HasFocus() ||
+                           shrink_button.HasFocus())) ||
+       previous_button.HasFocus() || next_button.HasFocus() ||
+       close_button.HasFocus() ||
+       info_widget.HasFocus() ||
+       details_panel.HasFocus() || details_text.HasFocus() ||
+#ifdef HAVE_RUN_FILE
+       (!waypoint->files_external.empty() && file_list.HasFocus()) ||
+#endif
+       commands_widget.HasFocus() ||
+       (!images.empty() && image_window.HasFocus());
+  }
+
   bool KeyPress(unsigned key_code) noexcept override;
 };
 
@@ -308,34 +332,16 @@ WaypointDetailsWidget::Layout::Layout(const PixelRect &rc,
   main = rc;
 
   if (width > height) {
-    main.left += ::Layout::Scale(70);
+    auto buttons = main.CutLeftSafe(::Layout::Scale(70));
 
-    PixelRect buttons = rc;
-    buttons.right = main.left;
+    goto_button = buttons.CutTopSafe(button_height);
+    std::tie(magnify_button, shrink_button) = buttons.CutTopSafe(button_height).VerticalSplit();
 
-    goto_button = buttons;
-    goto_button.bottom = buttons.top += button_height;
+    close_button = buttons.CutBottomSafe(button_height);
 
-    magnify_button = buttons;
-    magnify_button.bottom = buttons.top += button_height;
-
-    shrink_button = magnify_button;
-    magnify_button.right = shrink_button.left =
-      (buttons.left + buttons.right) / 2;
-
-    close_button = buttons;
-    close_button.top = buttons.bottom -= button_height;
-
-    previous_button = buttons;
-    previous_button.top = buttons.bottom -= button_height;
-    next_button = previous_button;
-    previous_button.right = next_button.left =
-      (buttons.left + buttons.right) / 2;
+    std::tie(previous_button, next_button) = buttons.CutBottomSafe(button_height).VerticalSplit();
   } else {
-    main.bottom -= button_height;
-
-    PixelRect buttons = rc;
-    buttons.top = main.bottom;
+    auto buttons = main.CutBottomSafe(button_height);
 
     const unsigned one_third = (2 * buttons.left + buttons.right) / 3;
     const unsigned two_thirds = (buttons.left + 2 * buttons.right) / 3;
@@ -374,10 +380,9 @@ WaypointDetailsWidget::Layout::Layout(const PixelRect &rc,
                                            waypoint.files_external.end());
   if (num_files > 0) {
     file_list_item_height = row_renderer.CalculateLayout(*UIGlobals::GetDialogLook().list.font);
-    file_list = details_text;
 
     unsigned list_height = file_list_item_height * std::min(num_files, 5u);
-    file_list.bottom = details_text.top += list_height;
+    file_list = details_text.CutTopSafe(list_height);
   }
 #endif
 }

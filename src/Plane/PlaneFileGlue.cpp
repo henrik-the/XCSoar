@@ -68,10 +68,12 @@ PlaneGlue::Read(Plane &plane, KeyValueFileReader &reader)
   bool has_registration = false;
   bool has_competition_id = false;
   bool has_type = false;
+  bool has_weglide_type = false;
   bool has_polar_name = false;
   bool has_polar = false;
   bool has_reference_mass = false;
   bool has_dry_mass = false;
+  bool has_empty_mass = false;
   bool has_handicap = false;
   bool has_max_ballast = false;
   bool has_dump_time = false;
@@ -89,6 +91,9 @@ PlaneGlue::Read(Plane &plane, KeyValueFileReader &reader)
     } else if (!has_type && StringIsEqual(pair.key, "Type")) {
       plane.type.SetUTF8(pair.value);
       has_type = true;
+    } else if (!has_weglide_type &&
+      StringIsEqual(pair.key, "WeGlideAircraftType")) {
+      has_weglide_type = ReadUnsigned(pair.value, plane.weglide_glider_type);
     } else if (!has_handicap && StringIsEqual(pair.key, "Handicap")) {
       has_handicap = ReadUnsigned(pair.value, plane.handicap);
     } else if (!has_polar_name && StringIsEqual(pair.key, "PolarName")) {
@@ -97,9 +102,11 @@ PlaneGlue::Read(Plane &plane, KeyValueFileReader &reader)
     } else if (!has_polar && StringIsEqual(pair.key, "PolarInformation")) {
       has_polar = ReadPolar(pair.value, plane);
     } else if (!has_reference_mass && StringIsEqual(pair.key, "PolarReferenceMass")) {
-      has_reference_mass = ReadDouble(pair.value, plane.reference_mass);
+      has_reference_mass = ReadDouble(pair.value, plane.polar_shape.reference_mass);
     } else if (!has_dry_mass && StringIsEqual(pair.key, "PolarDryMass")) {
-      has_dry_mass = ReadDouble(pair.value, plane.dry_mass);
+      has_dry_mass = ReadDouble(pair.value, plane.dry_mass_obsolete);
+    } else if (!has_empty_mass && StringIsEqual(pair.key, "PlaneEmptyMass")) {
+      has_empty_mass = ReadDouble(pair.value, plane.empty_mass);
     } else if (!has_max_ballast && StringIsEqual(pair.key, "MaxBallast")) {
       has_max_ballast = ReadDouble(pair.value, plane.max_ballast);
     } else if (!has_dump_time && StringIsEqual(pair.key, "DumpTime")) {
@@ -120,10 +127,16 @@ PlaneGlue::Read(Plane &plane, KeyValueFileReader &reader)
     plane.competition_id.clear();
   if (!has_type)
     plane.type.clear();
+  if (!has_weglide_type)
+    plane.weglide_glider_type = 0;
   if (!has_polar_name)
     plane.polar_name.clear();
-  if (!has_dry_mass)
-    plane.dry_mass = plane.reference_mass;
+  if (!has_empty_mass && has_dry_mass) {
+    plane.empty_mass = plane.dry_mass_obsolete - 90.;
+    has_empty_mass = true;
+  }
+  if (!has_empty_mass)
+    plane.empty_mass = plane.polar_shape.reference_mass;
   if (!has_handicap)
     plane.handicap = 100;
   if (!has_max_ballast)
@@ -166,10 +179,13 @@ PlaneGlue::Write(const Plane &plane, KeyValueFileWriter &writer)
   FormatPolarShape(plane.polar_shape, tmp.buffer(), tmp.capacity());
   writer.Write("PolarInformation", tmp);
 
-  tmp.Format("%f", (double)plane.reference_mass);
+  tmp.Format("%f", (double)plane.polar_shape.reference_mass);
   writer.Write("PolarReferenceMass", tmp);
-  tmp.Format("%f", (double)plane.dry_mass);
+  tmp.Format("%f", (double)plane.dry_mass_obsolete);  // dry mass split into empty and crew masses
+                                                      // keep entry for temporary backward compatibility
   writer.Write("PolarDryMass", tmp);
+  tmp.Format("%f", (double)plane.empty_mass);
+  writer.Write("PlaneEmptyMass", tmp);
   tmp.Format("%f", (double)plane.max_ballast);
   writer.Write("MaxBallast", tmp);
   tmp.Format("%f", (double)plane.dump_time);
@@ -178,6 +194,8 @@ PlaneGlue::Write(const Plane &plane, KeyValueFileWriter &writer)
   writer.Write("MaxSpeed", tmp);
   tmp.Format("%f", (double)plane.wing_area);
   writer.Write("WingArea", tmp);
+  tmp.Format("%u", (unsigned)plane.weglide_glider_type);
+  writer.Write("WeGlideAircraftType", tmp);
 }
 
 void

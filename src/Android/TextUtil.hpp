@@ -25,7 +25,6 @@ Copyright_License {
 #define XCSOAR_ANDROID_TEXT_UTIL_HPP
 
 #include "java/Object.hxx"
-#include "util/Compiler.h"
 
 #include <utility>
 
@@ -41,16 +40,15 @@ class TextUtil : protected Java::GlobalObject {
   unsigned height, ascent_height, capital_height;
   unsigned line_spacing, style;
 
-  TextUtil(jobject _obj) noexcept;
+  TextUtil(const Java::LocalObject &_obj) noexcept;
 
 public:
   static void Initialise(JNIEnv *env) noexcept;
   static void Deinitialise(JNIEnv *env) noexcept;
 
-  gcc_malloc
   static TextUtil *create(const FontDescription &d) noexcept;
 
-  gcc_pure
+  [[gnu::pure]]
   PixelSize getTextBounds(StringView text) const noexcept;
 
   struct Texture {

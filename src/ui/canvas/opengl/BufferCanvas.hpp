@@ -25,8 +25,8 @@ Copyright_License {
 #define XCSOAR_SCREEN_OPENGL_BUFFER_CANVAS_HPP
 
 #include "Canvas.hpp"
-#include "Surface.hpp"
 #include "Math/Point2D.hpp"
+#include "ui/opengl/Features.hpp" // for SOFTWARE_ROTATE_DISPLAY
 
 #include <glm/mat4x4.hpp>
 
@@ -42,16 +42,18 @@ class GLRenderBuffer;
 /**
  * An off-screen #Canvas implementation.
  */
-class BufferCanvas : public Canvas, private GLSurfaceListener {
+class BufferCanvas : public Canvas {
+  static constexpr GLint INTERNAL_FORMAT = GL_RGB;
+  static constexpr GLint FORMAT = GL_RGB;
+  static constexpr GLint TYPE = GL_UNSIGNED_BYTE;
+
   GLTexture *texture = nullptr;
 
   GLFrameBuffer *frame_buffer = nullptr;
 
   GLRenderBuffer *stencil_buffer = nullptr;
 
-#ifdef HAVE_GLES
   GLint old_viewport[4];
-#endif
 
   glm::mat4 old_projection_matrix;
 
@@ -116,13 +118,6 @@ public:
   void Commit(Canvas &other);
 
   void CopyTo(Canvas &other);
-
-#ifdef ENABLE_OPENGL
-private:
-  /* from GLSurfaceListener */
-  void SurfaceCreated() override;
-  void SurfaceDestroyed() override;
-#endif
 };
 
 #endif

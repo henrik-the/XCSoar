@@ -22,25 +22,22 @@ Copyright_License {
 */
 
 #include "DebugReplay.hpp"
-#include "io/TextWriter.hpp"
+#include "io/FileOutputStream.hxx"
+#include "io/BufferedOutputStream.hxx"
 #include "NMEA/Checksum.hpp"
 #include "Units/System.hpp"
 #include "system/Args.hpp"
+#include "util/PrintException.hxx"
 
 #include <stdio.h>
 
 static void
-GenerateNMEA(TextWriter &writer,
+GenerateNMEA(BufferedOutputStream &os,
              const GeoPoint &loc, const double speed,
              const Angle bearing, const double alt,
-             const double baroalt, const double t)
+             const double baroalt, const TimeStamp t) noexcept
 {
-  unsigned time = (unsigned)t;
-  unsigned hour = time / 3600;
-  time -= hour * 3600;
-  unsigned minute = time / 60;
-  time -= minute * 60;
-  unsigned second = time;
+  const auto time = BrokenTime::FromSinceMidnightChecked(t.ToDuration());
 
   const auto lat = loc.latitude.ToDMS();
   double lat_ms = lat.minutes + lat.seconds / 60.;
@@ -49,7 +46,7 @@ GenerateNMEA(TextWriter &writer,
   double lon_ms = lon.minutes + lon.seconds / 60.;
 
   NarrowString<256> gprmc("$GPRMC");
-  gprmc.AppendFormat(",%02d%02d%02d", hour, minute, second);
+  gprmc.AppendFormat(",%02u%02u%02u", time.hour, time.minute, time.second);
   gprmc.append(",A");
   gprmc.AppendFormat(",%02d%06.3f", lat.degrees, lat_ms);
   gprmc.append(lat.negative ? ",S" : ",N");
@@ -59,11 +56,11 @@ GenerateNMEA(TextWriter &writer,
   gprmc.AppendFormat(",%.0f", (double)bearing.Degrees());
   AppendNMEAChecksum(gprmc.buffer());
 
-  writer.WriteLine(gprmc);
-  printf("%s\n", gprmc.c_str());
+  os.Write(gprmc);
+  os.NewLine();
 
   NarrowString<256> gpgga("$GPGGA");
-  gpgga.AppendFormat(",%02d%02d%02d", hour, minute, second);
+  gpgga.AppendFormat(",%02u%02u%02u", time.hour, time.minute, time.second);
   gpgga.AppendFormat(",%02d%06.3f", lat.degrees, lat_ms);
   gprmc.append(lat.negative ? ",S" : ",N");
   gpgga.AppendFormat(",%03d%06.3f", lon.degrees, lon_ms);
@@ -72,20 +69,20 @@ GenerateNMEA(TextWriter &writer,
   gpgga.AppendFormat(",%.0f,m", (double)alt);
   AppendNMEAChecksum(gpgga.buffer());
 
-  writer.WriteLine(gpgga);
-  printf("%s\n", gpgga.c_str());
+  os.Write(gpgga);
+  os.NewLine();
 
   NarrowString<256> pgrmz("$PGRMZ");
   pgrmz.AppendFormat(",%.0f,m", (double)baroalt);
   AppendNMEAChecksum(pgrmz.buffer());
 
-  writer.WriteLine(pgrmz);
-  printf("%s\n", pgrmz.c_str());
+  os.Write(pgrmz);
+  os.NewLine();
 }
 
 int
-main(int argc, char **argv)
-{
+main(int argc, char **argv) noexcept
+try {
   Args args(argc, argv, "INFILE.igc OUTFILE.nmea");
   DebugReplay *replay = CreateDebugReplay(args);
   if (replay == NULL)
@@ -94,18 +91,21 @@ main(int argc, char **argv)
   const auto output_file = args.ExpectNextPath();
   args.ExpectEnd();
 
-  TextWriter writer(output_file);
-  if (!writer.IsOpen()) {
-    fprintf(stderr, "Failed to create output file\n");
-    return EXIT_FAILURE;
-  }
+  FileOutputStream fos{output_file};
+  BufferedOutputStream bos{fos};
 
   while (replay->Next()) {
     const NMEAInfo &basic = replay->Basic();
-    GenerateNMEA(writer, basic.location,
+    GenerateNMEA(bos, basic.location,
                  basic.ground_speed, basic.track, basic.gps_altitude,
                  basic.baro_altitude, basic.time);
   }
 
+  bos.Flush();
+  fos.Commit();
+
   return EXIT_SUCCESS;
+} catch (...) {
+  PrintException(std::current_exception());
+  return EXIT_FAILURE;
 }

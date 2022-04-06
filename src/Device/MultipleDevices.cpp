@@ -22,6 +22,7 @@ Copyright_License {
 */
 
 #include "MultipleDevices.hpp"
+#include "Atmosphere/Pressure.hpp"
 #include "Descriptor.hpp"
 #include "Dispatcher.hpp"
 
@@ -50,6 +51,13 @@ MultipleDevices::Tick()
 {
   for (DeviceDescriptor *i : devices)
     i->OnSysTicker();
+}
+
+void
+MultipleDevices::Open(OperationEnvironment &env) noexcept
+{
+  for (DeviceDescriptor *i : devices)
+    i->Open(env);
 }
 
 void
@@ -89,6 +97,13 @@ MultipleDevices::PutVolume(unsigned volume, OperationEnvironment &env)
 }
 
 void
+MultipleDevices::PutPilotEvent(OperationEnvironment &env)
+{
+  for (DeviceDescriptor *i : devices)
+    i->PutPilotEvent(env);
+}
+
+void
 MultipleDevices::PutActiveFrequency(RadioFrequency frequency,
                                     const TCHAR *name,
                                     OperationEnvironment &env)
@@ -107,7 +122,7 @@ MultipleDevices::PutStandbyFrequency(RadioFrequency frequency,
 }
 
 void
-MultipleDevices::PutQNH(const AtmosphericPressure &pres,
+MultipleDevices::PutQNH(AtmosphericPressure pres,
                         OperationEnvironment &env)
 {
   for (DeviceDescriptor *i : devices)

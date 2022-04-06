@@ -24,6 +24,7 @@ Copyright_License {
 #ifndef XCSOAR_SCREEN_PIXEL_TRAITS_HPP
 #define XCSOAR_SCREEN_PIXEL_TRAITS_HPP
 
+#include "Concepts.hpp"
 #include "ui/canvas/PortableColor.hpp"
 #include "util/ByteOrder.hxx"
 #include "util/Cast.hxx"
@@ -44,19 +45,19 @@ struct GreyscalePixelTraits {
   /**
    * One color for passing as parameter or return type.
    */
-  typedef Luminosity8 color_type;
+  using color_type = Luminosity8;
 
   /**
    * An integer type that holds the value of one channel.  It is used
    * by TransformChannels().
    */
-  typedef uint8_t channel_type;
+  using channel_type = uint8_t;
 
   /**
    * An integer type that may hold more than one channel.  It is used
    * by TransformInteger().
    */
-  typedef uint8_t integer_type;
+  using integer_type = uint8_t;
 
   /**
    * A pointer/iterator to a writable image buffer.
@@ -66,24 +67,24 @@ struct GreyscalePixelTraits {
    * dereference.  This class provides functions for all of this, use
    * them.
    */
-  typedef color_type *pointer;
+  using pointer = color_type *;
 
   /**
    * Same as #pointer, but with "restrict".  This guarantees the
    * compiler that there will be no aliasing, and allows the compiler
    * to apply more optimisations, e.g. auto vectorisation.
    */
-  typedef color_type *gcc_restrict rpointer;
+  using rpointer = color_type *gcc_restrict;
 
   /**
    * A pointer/iterator to a read-only image buffer.
    */
-  typedef const color_type *const_pointer;
+  using const_pointer = const color_type *;
 
   /**
    * Like #rpointer, but read-only.
    */
-  typedef const color_type *gcc_restrict const_rpointer;
+  using const_rpointer = const color_type *gcc_restrict;
 
   /**
    * Transform a color by passing integers to the given functions.
@@ -126,27 +127,27 @@ struct GreyscalePixelTraits {
   /**
    * How much to add to this pointer to go #delta pixels ahead?
    */
-  static constexpr int CalcIncrement(int delta) {
+  static constexpr std::ptrdiff_t CalcIncrement(std::ptrdiff_t delta) noexcept {
     return delta;
   }
 
   /**
    * Calculate a pointer to the pixel with the given offset.
    */
-  static constexpr pointer Next(pointer p, int delta) {
+  static constexpr pointer Next(pointer p, std::ptrdiff_t delta) noexcept {
     return p + CalcIncrement(delta);
   }
 
-  static constexpr const_pointer Next(const_pointer p, int delta) {
+  static constexpr const_pointer Next(const_pointer p, std::ptrdiff_t delta) noexcept {
     return p + CalcIncrement(delta);
   }
 
-  static constexpr pointer NextByte(pointer p, int delta) {
+  static constexpr pointer NextByte(pointer p, std::ptrdiff_t delta) noexcept {
     return OffsetCast<color_type>(p, delta);
   }
 
   static constexpr const_pointer NextByte(const_pointer p,
-                                               int delta) {
+                                          std::ptrdiff_t delta) noexcept {
     return OffsetCast<const color_type>(p, delta);
   }
 
@@ -155,13 +156,13 @@ struct GreyscalePixelTraits {
    *
    * @param pitch the number of bytes per row
    */
-  static constexpr pointer NextRow(pointer p,
-                                        unsigned pitch, int delta) {
+  static constexpr pointer NextRow(pointer p, std::size_t pitch,
+                                   std::ptrdiff_t delta) noexcept {
     return NextByte(p, int(pitch) * delta);
   }
 
-  static constexpr const_pointer NextRow(const_pointer p,
-                                              unsigned pitch, int delta) {
+  static constexpr const_pointer NextRow(const_pointer p, std::size_t pitch,
+                                         std::ptrdiff_t delta) noexcept {
     return NextByte(p, int(pitch) * delta);
   }
 
@@ -170,13 +171,13 @@ struct GreyscalePixelTraits {
    *
    * @param pitch the number of bytes per row
    */
-  static constexpr pointer At(pointer p, unsigned pitch,
-                                   int x, int y) {
+  static constexpr pointer At(pointer p, std::size_t pitch,
+                              int x, int y) noexcept {
     return Next(NextRow(p, pitch, y), x);
   }
 
-  static constexpr const_pointer At(const_pointer p, unsigned pitch,
-                                         int x, int y) {
+  static constexpr const_pointer At(const_pointer p, std::size_t pitch,
+                                    int x, int y) noexcept {
     return Next(NextRow(p, pitch, y), x);
   }
 
@@ -234,7 +235,8 @@ struct GreyscalePixelTraits {
    */
   template<typename F>
   gcc_hot
-  static void ForVertical(pointer p, unsigned pitch, unsigned n, F f) {
+  static void ForVertical(pointer p, std::size_t pitch,
+                          unsigned n, F f) noexcept {
     for (; n > 0; --n, p = NextByte(p, pitch))
       f(p);
   }
@@ -245,7 +247,7 @@ struct GreyscalePixelTraits {
    *
    * @param SPT the source pixel format
    */
-  template<typename SPT>
+  template<AnyPixelTraits SPT>
   struct Mixed {
     template<typename F>
     gcc_hot
@@ -267,13 +269,13 @@ struct GreyscalePixelTraits {
  * See #GreyscalePixelTraits for documentation about PixelTraits.
  */
 struct BGRAPixelTraits {
-  typedef BGRA8Color color_type;
-  typedef uint8_t channel_type;
-  typedef uint32_t integer_type;
-  typedef color_type *pointer;
-  typedef color_type *gcc_restrict rpointer;
-  typedef const color_type *const_pointer;
-  typedef const color_type *gcc_restrict const_rpointer;
+  using color_type = BGRA8Color;
+  using channel_type = uint8_t;
+  using integer_type = uint32_t;
+  using pointer = color_type *;
+  using rpointer = color_type *gcc_restrict;
+  using const_pointer = const color_type *;
+  using const_rpointer = const color_type *gcc_restrict;
 
   static_assert(sizeof(color_type) == sizeof(integer_type),
                 "Wrong integer_type");
@@ -327,44 +329,45 @@ struct BGRAPixelTraits {
       : (ToInteger(c) & 0xffffff00) == 0xffffff00;
   }
 
-  static constexpr int CalcIncrement(int delta) {
+  static constexpr std::ptrdiff_t CalcIncrement(std::ptrdiff_t delta) noexcept {
     return delta;
   }
 
-  static constexpr pointer Next(pointer p, int delta) {
+  static constexpr pointer Next(pointer p, std::ptrdiff_t delta) noexcept {
     return p + CalcIncrement(delta);
   }
 
-  static constexpr const_pointer Next(const_pointer p, int delta) {
+  static constexpr const_pointer Next(const_pointer p,
+                                      std::ptrdiff_t delta) noexcept {
     return p + CalcIncrement(delta);
   }
 
-  static constexpr pointer NextByte(pointer p, int delta) {
+  static constexpr pointer NextByte(pointer p, std::ptrdiff_t delta) noexcept {
     return (pointer)OffsetPointer(p, delta);
   }
 
   static constexpr const_pointer NextByte(const_pointer p,
-                                               int delta) {
+                                          std::ptrdiff_t delta) noexcept {
     return (const_pointer)OffsetPointer(p, delta);
   }
 
-  static constexpr pointer NextRow(pointer p,
-                                        unsigned pitch, int delta) {
+  static constexpr pointer NextRow(pointer p, std::size_t pitch,
+                                   std::ptrdiff_t delta) noexcept {
     return NextByte(p, int(pitch) * delta);
   }
 
-  static constexpr const_pointer NextRow(const_pointer p,
-                                              unsigned pitch, int delta) {
+  static constexpr const_pointer NextRow(const_pointer p, std::size_t pitch,
+                                         std::ptrdiff_t delta) noexcept {
     return NextByte(p, int(pitch) * delta);
   }
 
-  static constexpr pointer At(pointer p, unsigned pitch,
-                                   int x, int y) {
+  static constexpr pointer At(pointer p, std::size_t pitch,
+                              int x, int y) noexcept {
     return Next(NextRow(p, pitch, y), x);
   }
 
-  static constexpr const_pointer At(const_pointer p, unsigned pitch,
-                                         int x, int y) {
+  static constexpr const_pointer At(const_pointer p, std::size_t pitch,
+                                    int x, int y) noexcept {
     return Next(NextRow(p, pitch, y), x);
   }
 
@@ -429,7 +432,8 @@ struct BGRAPixelTraits {
   }
 
   template<typename F>
-  static void ForVertical(pointer p, unsigned pitch, unsigned n, F f) {
+  static void ForVertical(pointer p, std::size_t pitch,
+                          unsigned n, F f) noexcept {
     for (; n > 0; --n, p = NextByte(p, pitch))
       f(p);
   }

@@ -85,7 +85,7 @@ static Mode current_mode = InputEvents::MODE_DEFAULT;
  */
 static Mode overlay_mode = MODE_DEFAULT;
 
-static unsigned MenuTimeOut = 0;
+static std::chrono::duration<unsigned> MenuTimeOut{};
 
 /**
  * True if a full menu update was postponed by drawButtons().
@@ -390,18 +390,22 @@ InputEvents::IsGesture(const TCHAR *data) noexcept
 bool
 InputEvents::processGesture(const TCHAR *data) noexcept
 {
+  // start with lua event if available!
+  if (Lua::FireGesture(data))
+    return true;
+
   // get current mode
   unsigned event_id = gesture_to_event(data);
-  if (event_id)
-  {
+  if (event_id) {
     InputEvents::processGo(event_id);
     return true;
   }
-  return Lua::FireGesture(data);
+
+  return false;
 }
 
 /*
-  InputEvent::processNmea(TCHAR* data)
+  InputEvent::processNmea(TCHAR *data)
   Take hard coded inputs from NMEA processor.
   Return = TRUE if we have a valid key match
 */
@@ -461,7 +465,7 @@ InputEvents::processGo(unsigned eventid) noexcept
     const InputConfig::Event &event = input_config.events[eventid];
     if (event.event != NULL) {
       event.event(event.misc);
-      MenuTimeOut = 0;
+      MenuTimeOut = {};
     }
 
     eventid = event.next;
@@ -478,7 +482,7 @@ void
 InputEvents::ShowMenu() noexcept
 {
   setMode(MODE_MENU);
-  MenuTimeOut = 0;
+  MenuTimeOut = {};
   ProcessMenuTimer();
 }
 
@@ -505,7 +509,7 @@ InputEvents::ProcessMenuTimer() noexcept
   // refresh visible buttons if still visible
   drawButtons(getModeID());
 
-  MenuTimeOut++;
+  MenuTimeOut += std::chrono::seconds{1};
 }
 
 void

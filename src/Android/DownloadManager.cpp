@@ -26,6 +26,7 @@ Copyright_License {
 #include "net/http/DownloadManager.hpp"
 #include "Context.hpp"
 #include "java/Class.hxx"
+#include "java/Env.hxx"
 #include "java/Path.hxx"
 #include "java/String.hxx"
 #include "LocalPath.hpp"
@@ -38,27 +39,20 @@ Copyright_License {
 
 static Java::TrivialClass util_class;
 
-static jmethodID ctor, close_method, enumerate_method, enqueue_method, cancel_method;
+static jmethodID ctor, enumerate_method, enqueue_method, cancel_method;
 
 static Java::LocalObject
 NewDownloadUtil(JNIEnv *env, AndroidDownloadManager &instance, Context &context)
 {
-  auto obj = env->NewObject(util_class, ctor,
-                            (jlong)(std::size_t)&instance,
-                            context.Get());
-  Java::RethrowException(env);
-  return {env, obj};
+  return Java::NewObjectRethrow(env, util_class, ctor,
+                                (jlong)(std::size_t)&instance,
+                                context.Get());
 }
 
 AndroidDownloadManager::AndroidDownloadManager(JNIEnv *env,
                                                Context &context)
   :util(env, NewDownloadUtil(env, *this, context))
 {
-}
-
-AndroidDownloadManager::~AndroidDownloadManager() noexcept
-{
-  Java::GetEnv()->CallVoidMethod(util, close_method);
 }
 
 bool
@@ -72,8 +66,12 @@ AndroidDownloadManager::Initialise(JNIEnv *env) noexcept
 
   ctor = env->GetMethodID(util_class, "<init>",
                           "(JLandroid/content/Context;)V");
-
-  close_method = env->GetMethodID(util_class, "close", "()V");
+  if (Java::DiscardException(env)) {
+    /* need to check for Java exceptions again because the first
+       method lookup initializes the Java class */
+    util_class.Clear(env);
+    return false;
+  }
 
   enumerate_method = env->GetMethodID(util_class, "enumerate", "(J)V");
 

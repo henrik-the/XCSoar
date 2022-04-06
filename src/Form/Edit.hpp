@@ -85,7 +85,7 @@ public:
    * Returns the recommended caption width, measured by the dialog
    * font.
    */
-  gcc_pure
+  [[gnu::pure]]
   unsigned GetRecommendedCaptionWidth() const noexcept;
 
   void SetCaptionWidth(int caption_width) noexcept;
@@ -96,7 +96,7 @@ public:
     read_only = _read_only;
   }
 
-  gcc_pure
+  [[gnu::pure]]
   bool IsReadOnly() const noexcept {
     return read_only;
   }
@@ -145,6 +145,10 @@ public:
 
   void SetEditCallback(EditCallback _ec) noexcept {
     edit_callback = _ec;
+  }
+
+  const TCHAR *GetText() const noexcept {
+    return value.c_str();
   }
 
   /**

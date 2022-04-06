@@ -28,7 +28,7 @@ Copyright_License {
 #include "Dialogs/Dialogs.h"
 #include "util/StringCompare.hxx"
 #include "Interface.hpp"
-#include "Language/LanguageGlue.hpp"
+#include "Language/Table.hpp"
 #include "Asset.hpp"
 #include "LocalPath.hpp"
 #include "system/FileUtil.hpp"
@@ -38,11 +38,13 @@ Copyright_License {
 #include "UIGlobals.hpp"
 #include "Hardware/Vibrator.hpp"
 
+using namespace std::chrono;
+
 enum ControlIndex {
   UIScale,
   CustomDPI,
   InputFile,
-#ifndef HAVE_NATIVE_GETTEXT
+#ifdef HAVE_NLS
   LanguageFile,
 #endif
   MenuTimeout,
@@ -60,7 +62,7 @@ public:
   bool Save(bool &changed) noexcept override;
 };
 
-#ifndef HAVE_NATIVE_GETTEXT
+#ifdef HAVE_BUILTIN_LANGUAGES
 
 class LanguageFileVisitor: public File::Visitor
 {
@@ -76,7 +78,7 @@ public:
   }
 };
 
-#endif
+#endif // HAVE_BUILTIN_LANGUAGES
 
 void
 InterfaceConfigPanel::Prepare(ContainerWindow &parent,
@@ -108,7 +110,7 @@ InterfaceConfigPanel::Prepare(ContainerWindow &parent,
       _stprintf(buffer, _("%d dpi"), *dpi);
       df.AddChoice(*dpi, buffer);
     }
-    df.Set(settings.custom_dpi);
+    df.SetValue(settings.custom_dpi);
     wp_dpi->RefreshDisplay();
   }
   SetExpertRow(CustomDPI);
@@ -119,7 +121,7 @@ InterfaceConfigPanel::Prepare(ContainerWindow &parent,
           ProfileKeys::InputFile, _T("*.xci\0"));
   SetExpertRow(InputFile);
 
-#ifndef HAVE_NATIVE_GETTEXT
+#ifdef HAVE_NLS
   WndProperty *wp;
   wp = AddEnum(_("Language"),
                _("The language options selects translations for English texts to other "
@@ -130,40 +132,41 @@ InterfaceConfigPanel::Prepare(ContainerWindow &parent,
     df.addEnumText(_("Automatic"));
     df.addEnumText(_T("English"));
 
-#ifdef HAVE_BUILTIN_LANGUAGES
     for (const BuiltinLanguage *l = language_table;
          l->resource != nullptr; ++l) {
       StaticString<100> display_string;
       display_string.Format(_T("%s (%s)"), l->name, l->resource);
       df.addEnumText(l->resource, display_string);
     }
-#endif
 
+#ifdef HAVE_BUILTIN_LANGUAGES
     LanguageFileVisitor lfv(df);
     VisitDataFiles(_T("*.mo"), lfv);
+#endif
 
     df.Sort(2);
 
     auto value_buffer = Profile::GetPath(ProfileKeys::LanguageFile);
     Path value = value_buffer;
-    if (value.IsNull())
+    if (value == nullptr)
       value = Path(_T(""));
 
     if (value == Path(_T("none")))
-      df.Set(1);
+      df.SetValue(1);
     else if (!value.IsEmpty() && value != Path(_T("auto"))) {
       const Path base = value.GetBase();
       if (base != nullptr)
-        df.Set(base.c_str());
+        df.SetValue(base.c_str());
     }
     wp->RefreshDisplay();
   }
-#endif /* !HAVE_NATIVE_GETTEXT */
+#endif // HAVE_NLS
 
-  AddTime(_("Menu timeout"),
-          _("This determines how long menus will appear on screen if the user does not make any button "
-            "presses or interacts with the computer."),
-          1, 60, 1, settings.menu_timeout / 2);
+  AddDuration(_("Menu timeout"),
+              _("This determines how long menus will appear on screen if the user does not make any button "
+                "presses or interacts with the computer."),
+              seconds{1}, minutes{1}, seconds{1},
+              settings.menu_timeout / 2);
   SetExpertRow(MenuTimeout);
 
   static constexpr StaticEnumChoice text_input_list[] = {
@@ -215,7 +218,7 @@ InterfaceConfigPanel::Save(bool &_changed) noexcept
   if (SaveValueFileReader(InputFile, ProfileKeys::InputFile))
     require_restart = changed = true;
 
-#ifndef HAVE_NATIVE_GETTEXT
+#ifdef HAVE_NLS
   WndProperty *wp = (WndProperty *)&GetControl(LanguageFile);
   if (wp != nullptr) {
     DataFieldEnum &df = *(DataFieldEnum *)wp->GetDataField();
@@ -244,7 +247,7 @@ InterfaceConfigPanel::Save(bool &_changed) noexcept
     default:
       new_value = df.GetAsString();
       buffer = ContractLocalPath(Path(new_value));
-      if (!buffer.IsNull())
+      if (buffer != nullptr)
         new_value = buffer.c_str();
       new_base = Path(new_value).GetBase().c_str();
       if (new_base == nullptr)
@@ -258,9 +261,9 @@ InterfaceConfigPanel::Save(bool &_changed) noexcept
       LanguageChanged = changed = true;
     }
   }
-#endif
+#endif // HAVE_NLS
 
-  unsigned menu_timeout = GetValueInteger(MenuTimeout) * 2;
+  duration<unsigned> menu_timeout{GetValueInteger(MenuTimeout) * 2};
   if (settings.menu_timeout != menu_timeout) {
     settings.menu_timeout = menu_timeout;
     Profile::Set(ProfileKeys::MenuTimeout, menu_timeout);

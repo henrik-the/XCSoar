@@ -30,8 +30,8 @@ Copyright_License {
 #ifdef ENABLE_OPENGL
 #include "ui/dim/Rect.hpp"
 #include "ui/canvas/opengl/Init.hpp"
-#include "ui/opengl/Features.hpp"
 #include "Math/Point2D.hpp"
+#include "LogFile.hpp"
 #else
 #include "ui/canvas/memory/Export.hpp"
 #include "ui/canvas/Canvas.hpp"
@@ -55,25 +55,23 @@ Copyright_License {
 
 #include <cassert>
 
-#ifndef ENABLE_OPENGL
+#ifdef ENABLE_OPENGL
 
-PixelRect
-TopCanvas::GetRect() const
+[[gnu::pure]]
+static int
+GetConfigAttrib(SDL_GLattr attribute, int default_value) noexcept
 {
-  assert(IsDefined());
-
-  int width, height;
-  ::SDL_GetWindowSize(window, &width, &height);
-  return { 0, 0, width, height };
+  int value;
+  return SDL_GL_GetAttribute(attribute, &value) == 0
+    ? value
+    : default_value;
 }
 
 #endif
 
-void
-TopCanvas::Create(SDL_Window *_window, PixelSize new_size)
+TopCanvas::TopCanvas(UI::Display &_display, SDL_Window *_window)
+  :display(_display), window(_window)
 {
-  window = _window;
-
 #ifdef USE_MEMORY_CANVAS
   renderer = SDL_CreateRenderer(window, -1, 0);
   if (renderer == nullptr)
@@ -81,7 +79,7 @@ TopCanvas::Create(SDL_Window *_window, PixelSize new_size)
                              window, -1, 0, ::SDL_GetError());
 
   int width, height;
-  SDL_GetWindowSize(window, &width, &height);
+  SDL_GetRendererOutputSize(renderer, &width, &height);
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB888,
                               SDL_TEXTUREACCESS_STREAMING,
                               width, height);
@@ -97,18 +95,27 @@ TopCanvas::Create(SDL_Window *_window, PixelSize new_size)
     throw FormatRuntimeError("SDL_GL_CreateContext(%p) has failed: %s",
                              window, ::SDL_GetError());
 
+  LogFormat("GLX config: RGB=%d/%d/%d alpha=%d depth=%d stencil=%d",
+            GetConfigAttrib(SDL_GL_RED_SIZE, 0),
+            GetConfigAttrib(SDL_GL_GREEN_SIZE, 0),
+            GetConfigAttrib(SDL_GL_BLUE_SIZE, 0),
+            GetConfigAttrib(SDL_GL_ALPHA_SIZE, 0),
+            GetConfigAttrib(SDL_GL_DEPTH_SIZE, 0),
+            GetConfigAttrib(SDL_GL_STENCIL_SIZE, 0));
+
+  /* this is usually done by OpenGL::Display, but libSDL doesn't allow
+     that */
   OpenGL::SetupContext();
 
   SetupViewport(GetNativeSize());
 #endif
 
 #ifdef GREYSCALE
-  buffer.Allocate(new_size.width, new_size.height);
+  buffer.Allocate(width, height);
 #endif
 }
 
-void
-TopCanvas::Destroy()
+TopCanvas::~TopCanvas() noexcept
 {
 #if !defined(ENABLE_OPENGL) && defined(GREYSCALE)
   buffer.Free();
@@ -122,7 +129,7 @@ TopCanvas::Destroy()
 #ifdef ENABLE_OPENGL
 
 PixelSize
-TopCanvas::GetNativeSize() const
+TopCanvas::GetNativeSize() const noexcept
 {
   int w, h;
   SDL_GL_GetDrawableSize(window, &w, &h);
@@ -133,8 +140,22 @@ TopCanvas::GetNativeSize() const
 
 #ifdef USE_MEMORY_CANVAS
 
+#ifndef GREYSCALE
+
+PixelSize
+TopCanvas::GetSize() const noexcept
+{
+  int width, height;
+  if (SDL_QueryTexture(texture, nullptr, nullptr, &width, &height) != 0)
+    return {};
+
+  return PixelSize(width, height);
+}
+
+#endif // !GREYSCALE
+
 void
-TopCanvas::OnResize(PixelSize new_size)
+TopCanvas::OnResize(PixelSize new_size) noexcept
 {
   int texture_width, texture_height;
   Uint32 texture_format;
@@ -159,7 +180,7 @@ TopCanvas::OnResize(PixelSize new_size)
 #endif
 }
 
-#endif
+#endif // USE_MEMORY_CANVAS
 
 #ifdef GREYSCALE
 
@@ -260,7 +281,7 @@ TopCanvas::Lock()
 }
 
 void
-TopCanvas::Unlock()
+TopCanvas::Unlock() noexcept
 {
 #ifndef GREYSCALE
   SDL_UnlockTexture(texture);
@@ -284,7 +305,6 @@ TopCanvas::Flip()
                     texture, buffer);
 #endif
 
-  ::SDL_RenderClear(renderer);
   ::SDL_RenderCopy(renderer, texture, nullptr, nullptr);
   ::SDL_RenderPresent(renderer);
 

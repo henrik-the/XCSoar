@@ -24,9 +24,10 @@ Copyright_License {
 #include "GlideComputer.hpp"
 #include "Computer/Settings.hpp"
 #include "NMEA/Derived.hpp"
-#include "ConditionMonitor/ConditionMonitors.hpp"
 #include "GlideComputerInterface.hpp"
 #include "Engine/Waypoint/Waypoints.hpp"
+
+using namespace std::chrono;
 
 static PeriodClock last_team_code_update;
 
@@ -38,6 +39,7 @@ GlideComputer::GlideComputer(const ComputerSettings &_settings,
   :air_data_computer(_way_points),
    warning_computer(_settings.airspace.warnings, _airspace_database),
    task_computer(task, _airspace_database, &warning_computer.GetManager()),
+   idle_condition_monitors(warning_computer.GetManager()),
    waypoints(_way_points),
    retrospective(_way_points),
    team_code_ref_id(-1)
@@ -80,16 +82,16 @@ GlideComputer::ProcessGPS(bool force)
 
   if (basic.time_available) {
     /* use UTC offset to calculate local time */
-    const int utc_offset_s = settings.utc_offset.AsSeconds();
+    const auto utc_offset = settings.utc_offset.ToDuration();
 
     calculated.date_time_local = basic.date_time_utc.IsDatePlausible()
       /* known date: apply UTC offset to BrokenDateTime, which may
          increment/decrement date */
-      ? basic.date_time_utc + utc_offset_s
+      ? basic.date_time_utc + utc_offset
       /* unknown date: apply UTC offset only to BrokenTime, leave the
          BrokenDate part invalid as it was */
       : BrokenDateTime(BrokenDate::Invalid(),
-                       ((const BrokenTime &)basic.date_time_utc) + utc_offset_s);
+                       basic.date_time_utc.GetTime() + utc_offset);
   } else
     calculated.date_time_local = BrokenDateTime::Invalid();
 
@@ -139,10 +141,11 @@ GlideComputer::ProcessGPS(bool force)
 
   // update basic trace history
   if (basic.time_available) {
-    const auto dt = trace_history_time.Update(basic.time, 0.5, 30);
-    if (dt > 0)
+    const auto dt = trace_history_time.Update(basic.time,
+                                              milliseconds{500}, seconds{30});
+    if (dt.count() > 0)
       calculated.trace_history.append(basic);
-    else if (dt < 0)
+    else if (dt.count() < 0)
       /* time warp */
       calculated.trace_history.clear();
   }
@@ -150,9 +153,9 @@ GlideComputer::ProcessGPS(bool force)
   CalculateVarioScale();
 
   // Update the ConditionMonitors
-  ConditionMonitorsUpdate(Basic(), Calculated(), settings);
+  condition_monitors.Update(Basic(), Calculated(), settings);
 
-  return idle_clock.CheckUpdate(std::chrono::milliseconds(500));
+  return idle_clock.CheckUpdate(milliseconds(500));
 }
 
 void
@@ -171,6 +174,8 @@ GlideComputer::ProcessIdle(bool exhaustive)
 
   warning_computer.Update(GetComputerSettings(), basic,
                           calculated, calculated.airspace_warnings);
+
+  idle_condition_monitors.Update(basic, calculated, GetComputerSettings());
 
   // Calculate summary of flight
   if (basic.location_available)
@@ -205,7 +210,7 @@ GlideComputer::CalculateOwnTeamCode()
     return;
 
   // Only calculate every 10sec otherwise cancel calculation
-  if (!last_team_code_update.CheckUpdate(std::chrono::seconds(10)))
+  if (!last_team_code_update.CheckUpdate(seconds(10)))
     return;
 
   // Get bearing and distance to the reference waypoint

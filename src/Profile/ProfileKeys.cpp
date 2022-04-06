@@ -25,6 +25,7 @@ Copyright_License {
 
 namespace ProfileKeys {
 
+const char FullScreen[] = "FullScreen";
 const char UIScale[] = "UIScale";
 const char CustomDPI[] = "CustomDPI";
 const char Password[] = "Password";
@@ -95,8 +96,14 @@ const char WatchedWaypointFile[] = "WatchedWPFile"; // pL
 const char LanguageFile[] = "LanguageFile"; // pL
 const char InputFile[] = "InputFile"; // pL
 const char PilotName[] = "PilotName";
+const char WeGlideEnabled[] = "WeGlideEnabled";
+const char WeGlidePilotID[] = "WeGlidePilotID";
+const char WeGlidePilotBirthDate[] = "WeGlidePilotBirthDate";
+const char WeGlideAircraftType[] = "WeGlideAircraftType";
+const char WeGlideAutomaticUpload[] = "WeGlideAutomaticUpload";
 const char CoPilotName[] = "CoPilotName";
 const char PilotWeGlideId[] = "PilotWeGlideId";
+const char CrewWeightTemplate[] = "CrewWeightTemplate";
 const char AircraftType[] = "AircraftType";
 const char AircraftReg[] = "AircraftReg";
 const char CompetitionId[] = "AircraftRego";
@@ -173,6 +180,8 @@ const char FinishRadius[] = "FinishRadius";
 const char TaskType[] = "TaskType";
 const char AATMinTime[] = "AATMinTime";
 const char AATTimeMargin[] = "AATTimeMargin";
+const char PEVStartWaitTime[] = "PEVStartWaitTime";
+const char PEVStartWindow[] = "PEVStartWindow";
 
 const char EnableNavBaroAltitude[] = "EnableNavBaroAltitude";
 
@@ -267,6 +276,8 @@ const char PCMetUsername[] = "PCMetUsername";
 const char PCMetPassword[] = "PCMetPassword";
 const char PCMetFtpUsername[] = "PCMetFtpUsername";
 const char PCMetFtpPassword[] = "PCMetFtpPassword";
+
+const char EnableThermalInformationMap[] = "EnableThermalInformationMap";
 
 const char EnableLocationMapItem[] = "EnableLocationMapItem";
 const char EnableArrivalAltitudeMapItem[] = "EnableArrivalAltitudeMapItem";

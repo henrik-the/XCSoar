@@ -43,7 +43,7 @@ class AirspaceWarningWidget final
   AirspaceWarningMonitor &monitor;
   ProtectedAirspaceWarningManager &manager;
 
-  const AbstractAirspace &airspace;
+  const ConstAirspacePtr airspace;
   AirspaceWarning::State state;
 
   StaticString<256> buffer;
@@ -51,12 +51,12 @@ class AirspaceWarningWidget final
   gcc_pure
   const TCHAR *MakeMessage(const AbstractAirspace &airspace,
                            AirspaceWarning::State state,
-                           const AirspaceInterceptSolution &solution) {
+                           const AirspaceInterceptSolution &solution) noexcept {
     if (state == AirspaceWarning::WARNING_INSIDE)
       buffer.Format(_T("%s: %s"), _("Inside airspace"), airspace.GetName());
     else
       buffer.Format(_T("%s: %s (%s)"), _("Near airspace"), airspace.GetName(),
-                    FormatTimespanSmart(int(solution.elapsed_time),
+                    FormatTimespanSmart(solution.elapsed_time,
                                         2).c_str());
 
     return buffer;
@@ -65,12 +65,12 @@ class AirspaceWarningWidget final
 public:
   AirspaceWarningWidget(AirspaceWarningMonitor &_monitor,
                         ProtectedAirspaceWarningManager &_manager,
-                        const AbstractAirspace &_airspace,
+                        ConstAirspacePtr _airspace,
                         AirspaceWarning::State _state,
-                        const AirspaceInterceptSolution &solution)
-    :QuestionWidget(MakeMessage(_airspace, _state, solution)),
+                        const AirspaceInterceptSolution &solution) noexcept
+    :QuestionWidget(MakeMessage(*_airspace, _state, solution)),
      monitor(_monitor), manager(_manager),
-     airspace(_airspace), state(_state) {
+     airspace(std::move(_airspace)), state(_state) {
     AddButton(_("ACK"), [this](){
       if (state == AirspaceWarning::WARNING_INSIDE)
         manager.AcknowledgeInside(airspace);
@@ -91,25 +91,25 @@ public:
     });
   }
 
-  ~AirspaceWarningWidget() {
+  ~AirspaceWarningWidget() noexcept {
     assert(monitor.widget == this);
     monitor.widget = nullptr;
   }
 
   bool Update(const AbstractAirspace &_airspace,
               AirspaceWarning::State _state,
-              const AirspaceInterceptSolution &solution) {
-    if (&_airspace != &airspace)
+              const AirspaceInterceptSolution &solution) noexcept {
+    if (&_airspace != airspace.get())
       return false;
 
     state = _state;
-    SetMessage(MakeMessage(airspace, state, solution));
+    SetMessage(MakeMessage(*airspace, state, solution));
     return true;
   }
 };
 
 void
-AirspaceWarningMonitor::Reset()
+AirspaceWarningMonitor::Reset() noexcept
 {
   const auto &calculated = CommonInterface::Calculated();
 
@@ -117,7 +117,7 @@ AirspaceWarningMonitor::Reset()
 }
 
 void
-AirspaceWarningMonitor::HideWidget()
+AirspaceWarningMonitor::HideWidget() noexcept
 {
   if (widget != nullptr)
     PageActions::RestoreBottom();
@@ -125,7 +125,7 @@ AirspaceWarningMonitor::HideWidget()
 }
 
 void
-AirspaceWarningMonitor::Check()
+AirspaceWarningMonitor::Check() noexcept
 {
   const auto &calculated = CommonInterface::Calculated();
 
@@ -159,21 +159,9 @@ AirspaceWarningMonitor::Check()
     return;
   }
 
-  const AbstractAirspace *airspace = nullptr;
-  AirspaceWarning::State state;
-  AirspaceInterceptSolution solution;
+  const auto w = airspace_warnings->GetTopWarning();
 
-  {
-    const ProtectedAirspaceWarningManager::Lease lease(*airspace_warnings);
-    auto w = lease->begin();
-    if (w != lease->end() && w->IsAckExpired()) {
-      airspace = &w->GetAirspace();
-      state = w->GetWarningState();
-      solution = w->GetSolution();
-    }
-  }
-
-  if (airspace == nullptr) {
+  if (!w || !w->IsActive()) {
     HideWidget();
     return;
   }
@@ -181,14 +169,17 @@ AirspaceWarningMonitor::Check()
   if (CommonInterface::GetUISettings().enable_airspace_warning_dialog) {
     /* show airspace warning */
     if (widget != nullptr) {
-      if (widget->Update(*airspace, state, solution))
+      if (widget->Update(w->GetAirspace(), w->GetWarningState(),
+                         w->GetSolution()))
         return;
 
       HideWidget();
     }
 
     widget = new AirspaceWarningWidget(*this, *airspace_warnings,
-                                       *airspace, state, solution);
+                                       w->GetAirspacePtr(),
+                                       w->GetWarningState(),
+                                       w->GetSolution());
     PageActions::SetCustomBottom(widget);
   }
 

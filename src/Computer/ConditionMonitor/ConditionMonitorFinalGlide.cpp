@@ -29,7 +29,7 @@ Copyright_License {
 bool
 ConditionMonitorFinalGlide::CheckCondition(const NMEAInfo &basic,
                                            const DerivedInfo &calculated,
-                                           const ComputerSettings &settings)
+                                           const ComputerSettings &settings) noexcept
 {
   if (!calculated.flight.flying || !calculated.task_stats.task_valid)
     return false;
@@ -42,14 +42,14 @@ ConditionMonitorFinalGlide::CheckCondition(const NMEAInfo &basic,
   bool BeforeFinalGlide = !res.IsFinalGlide();
 
   if (BeforeFinalGlide) {
-    Interval_Notification = 60 * 5;
+    Interval_Notification = std::chrono::minutes{5};
     if (tad > 50 && last_tad < -50)
       // report above final glide early
       return true;
     else if (tad < -50)
       last_tad = tad;
   } else {
-    Interval_Notification = 60;
+    Interval_Notification = std::chrono::minutes{1};
     if (res.IsFinalGlide()) {
       if (last_tad < -50 && tad > 1)
         // just reached final glide, previously well below
@@ -66,7 +66,7 @@ ConditionMonitorFinalGlide::CheckCondition(const NMEAInfo &basic,
 }
 
 void
-ConditionMonitorFinalGlide::Notify()
+ConditionMonitorFinalGlide::Notify() noexcept
 {
   if (tad > 1)
     InputEvents::processGlideComputer(GCE_FLIGHTMODE_FINALGLIDE_ABOVE);
@@ -75,7 +75,7 @@ ConditionMonitorFinalGlide::Notify()
 }
 
 void
-ConditionMonitorFinalGlide::SaveLast()
+ConditionMonitorFinalGlide::SaveLast() noexcept
 {
   last_tad = tad;
 }

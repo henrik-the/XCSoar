@@ -30,10 +30,12 @@ Copyright_License {
 #include "Math/SunEphemeris.hpp"
 #include "Computer/Settings.hpp"
 
+using namespace std::chrono;
+
 bool
 ConditionMonitorSunset::CheckCondition(const NMEAInfo &basic,
                                        const DerivedInfo &calculated,
-                                       const ComputerSettings &settings)
+                                       const ComputerSettings &settings) noexcept
 {
   if (!basic.location_available ||
       !basic.time_available || !basic.date_time_utc.IsDatePlausible() ||
@@ -51,16 +53,18 @@ ConditionMonitorSunset::CheckCondition(const NMEAInfo &basic,
     SunEphemeris::CalcSunTimes(basic.location, basic.date_time_utc,
                                settings.utc_offset);
 
-  const auto time_local = basic.time + settings.utc_offset.AsSeconds();
-  const auto d1 = (time_local + res.time_elapsed) / 3600;
-  const auto d0 = time_local / 3600;
+  const auto time_local = basic.time + settings.utc_offset.ToDuration();
 
-  bool past_sunset = (d1 > sun.time_of_sunset) && (d0 < sun.time_of_sunset);
+  using Hours = duration<double, hours::period>;
+  const auto d1 = (time_local + res.time_elapsed).Cast<Hours>();
+  const auto d0 = time_local.Cast<Hours>();
+
+  bool past_sunset = (d1.count() > sun.time_of_sunset) && (d0.count() < sun.time_of_sunset);
   return past_sunset;
 }
 
 void
-ConditionMonitorSunset::Notify()
+ConditionMonitorSunset::Notify() noexcept
 {
   Message::AddMessage(_("Expect arrival past sunset"));
 }

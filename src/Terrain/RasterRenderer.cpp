@@ -23,7 +23,7 @@ Copyright_License {
 
 #include "Terrain/RasterRenderer.hpp"
 #include "Terrain/RasterMap.hpp"
-#include "Math/FastMath.hpp"
+#include "Math/Constants.hpp"
 #include "util/Clamp.hpp"
 #include "Screen/Layout.hpp"
 #include "ui/canvas/Ramp.hpp"
@@ -206,10 +206,10 @@ RasterRenderer::GenerateImage(bool do_shading,
                               bool do_contour)
 {
   if (image == nullptr ||
-      height_matrix.GetWidth() > image->GetWidth() ||
-      height_matrix.GetHeight() > image->GetHeight()) {
+      height_matrix.GetWidth() > image->GetSize().width ||
+      height_matrix.GetHeight() > image->GetSize().height) {
     delete image;
-    image = new RawBitmap(height_matrix.GetWidth(), height_matrix.GetHeight());
+    image = new RawBitmap({height_matrix.GetWidth(), height_matrix.GetHeight()});
 
     delete[] contour_column_base;
     contour_column_base = new unsigned char[height_matrix.GetWidth()];

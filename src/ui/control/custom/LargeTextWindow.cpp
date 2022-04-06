@@ -33,7 +33,7 @@ LargeTextWindow::Create(ContainerWindow &parent, PixelRect rc,
 {
   origin = 0;
 
-  Window::Create(&parent, rc, style);
+  NativeWindow::Create(&parent, rc, style);
 }
 
 unsigned
@@ -71,6 +71,12 @@ LargeTextWindow::ScrollVertically(int delta_lines)
   else if (new_origin > row_count - visible_rows)
     new_origin = row_count - visible_rows;
 
+  ScrollTo(new_origin);
+}
+
+void
+LargeTextWindow::ScrollTo(unsigned new_origin) noexcept
+{
   if (new_origin != origin) {
     origin = new_origin;
     Invalidate();
@@ -80,7 +86,7 @@ LargeTextWindow::ScrollVertically(int delta_lines)
 void
 LargeTextWindow::OnResize(PixelSize new_size)
 {
-  Window::OnResize(new_size);
+  NativeWindow::OnResize(new_size);
 
   if (!value.empty()) {
     /* revalidate the scroll position */
@@ -95,12 +101,29 @@ LargeTextWindow::OnResize(PixelSize new_size)
 }
 
 void
+LargeTextWindow::OnSetFocus()
+{
+  NativeWindow::OnSetFocus();
+  Invalidate();
+}
+
+void
+LargeTextWindow::OnKillFocus()
+{
+  NativeWindow::OnKillFocus();
+  Invalidate();
+}
+
+void
 LargeTextWindow::OnPaint(Canvas &canvas)
 {
   canvas.ClearWhite();
 
-  PixelRect rc(0, 0, canvas.GetWidth() - 1, canvas.GetHeight() - 1);
+  auto rc = canvas.GetRect();
   canvas.DrawOutlineRectangle(rc, COLOR_BLACK);
+
+  if (HasFocus())
+    canvas.DrawFocusRectangle(rc.WithPadding(1));
 
   if (value.empty())
     return;
@@ -143,9 +166,36 @@ LargeTextWindow::OnKeyDown(unsigned key_code)
   case KEY_DOWN:
     ScrollVertically(1);
     return true;
+
+  case KEY_HOME:
+    ScrollTo(0);
+    return true;
+
+  case KEY_END:
+    if (unsigned visible_rows = GetVisibleRows(), row_count = GetRowCount();
+        visible_rows < row_count)
+      ScrollTo(row_count - visible_rows);
+    return true;
+
+  case KEY_PRIOR:
+    ScrollVertically(-(int)GetVisibleRows());
+    return true;
+
+  case KEY_NEXT:
+    ScrollVertically(GetVisibleRows());
+    return true;
   }
 
-  return Window::OnKeyDown(key_code);
+  return NativeWindow::OnKeyDown(key_code);
+}
+
+bool
+LargeTextWindow::OnMouseDown(PixelPoint p)
+{
+  if (IsTabStop())
+    SetFocus();
+
+  return true;
 }
 
 void

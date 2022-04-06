@@ -65,8 +65,14 @@ Logger::LogFinishEvent(const NMEAInfo &gps_info)
   LogEvent(gps_info, "FIN");
 }
 
+void
+Logger::LogPilotEvent(const NMEAInfo &gps_info)
+{
+  LogEvent(gps_info, "PEV");
+}
+
 bool
-Logger::IsLoggerActive() const
+Logger::IsLoggerActive() const noexcept
 {
   const std::shared_lock<SharedMutex> protect(lock);
   return logger.IsActive();
@@ -144,7 +150,7 @@ Logger::LoggerNote(const TCHAR *text)
 }
 
 void
-Logger::ClearBuffer()
+Logger::ClearBuffer() noexcept
 {
   const std::lock_guard<SharedMutex> protect(lock);
   logger.ClearBuffer();

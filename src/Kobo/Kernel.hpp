@@ -24,8 +24,6 @@ Copyright_License {
 #ifndef XCSOAR_KOBO_KERNEL_HPP
 #define XCSOAR_KOBO_KERNEL_HPP
 
-#include "util/Compiler.h"
-
 /**
  * Install the given kernel image on /dev/mmcblk0.
  */
@@ -33,10 +31,17 @@ bool
 KoboInstallKernel(const char *uimage_path);
 
 /**
- * Does the kernel that is currently running have USB-OTG support?
+ * Is the kernel that is currently running a custom one?
  */
-gcc_const
+[[gnu::const]]
 bool
-IsKoboOTGKernel();
+IsKoboCustomKernel();
+
+/**
+ * Are we currently in OTG host mode?
+ */
+[[gnu::pure]]
+bool
+IsKoboOTGHostMode();
 
 #endif
